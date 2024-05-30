@@ -1,0 +1,27 @@
+add conda-forge as additional default channel !
+
+conda install spyder
+conda install pytorch==2.0.0 torchvision==0.15.0 torchaudio==2.0.0 pytorch-cuda=11.7 -c pytorch -c nvidia (windows)
+conda install pytorch==2.1.0 torchvision==0.16.0 torchaudio==2.1.0 -c pytorch (macos)
+conda install matplotlib
+conda install scikit-learn
+conda install scipy
+conda install h5py
+conda install librosa
+conda install tqdm
+conda install pyqt
+conda install pyqtgraph
+conda install pyopengl
+conda install transforms3d
+conda install pybullet
+conda install gym
+conda install pandas
+conda install ffmpeg-python
+conda install opencv
+
+pip install einops-exts
+pip install python-osc
+pip install PySoundFile
+pip install simpleaudio
+pip install pyaudio
+
