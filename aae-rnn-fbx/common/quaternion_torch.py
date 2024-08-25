@@ -214,7 +214,7 @@ def mat2quat(R):
 
     This uses the Shepperd’s method for numerical stability.
     """
-    
+
     # The rotation matrix must be orthonormal
 
     w2 = (1 + R[..., 0, 0] + R[..., 1, 1] + R[..., 2, 2])
@@ -261,32 +261,32 @@ def mat2quat(R):
     z[flagD] = wz[flagD] / w[flagD]
 
     # if R[..., 2, 2] < 0:
-    
+    #
     #     if R[..., 0, 0] > R[..., 1, 1]:
-    
+    #
     #         x = torch.sqrt(x2)
     #         w = wx / x
     #         y = xy / x
     #         z = xz / x
-    
+    #
     #     else:
-    
+    #
     #         y = torch.sqrt(y2)
     #         w = wy / y
     #         x = xy / y
     #         z = yz / y
-    
+    #
     # else:
-    
+    #
     #     if R[..., 0, 0] < -R[..., 1, 1]:
-    
+    #
     #         z = torch.sqrt(z2)
     #         w = wz / z
     #         x = xz / z
     #         y = yz / z
-    
+    #
     #     else:
-    
+    #
     #         w = torch.sqrt(w2)
     #         x = wx / w
     #         y = wy / w

@@ -6,18 +6,8 @@ representation per quaternion: w, x, y, z
 import numpy as np
 import common.quaternion_np as nquat
 
-def is_normalized(q_r, q_d):
-    """Check if the dual quaternion is normalized"""
-    if np.isclose(np.linalg.norm(q_r), 0):
-        return True
-
-    rot_normalized = np.isclose(np.linalg.norm(q_r), 1)
-    trans_normalized = (q_d / np.linalg.norm(q_r)) == q_d
-    
-    rot_normalized = (rot_normalized == True).all()
-    trans_normalized = (trans_normalized == True).all()
-    
-    return rot_normalized and trans_normalized
+def normalize(q_r, q_d):
+    return nquat.normalize(q_r), nquat.normalize(q_d)
 
 def dconj(q_r, q_d):
     """
@@ -29,25 +19,11 @@ def dconj(q_r, q_d):
 
 def cconj(q_r, q_d):
     """
-    Return the combination of the quaternion conjugate and dual number conjugate
+    Return the combination of the quaternion conjugate and dual number conjugate (tested)
     (qr, qd)* = (qr*, -qd*)
-
-    This form is commonly used to transform a point
-    See also DualQuaternion.dual_number_conjugate() and DualQuaternion.quaternion_conjugate().
     """
     
-    return nquat.conj(q_r), nquat.conj(-q_d)
-
-def conj(q_r, q_d):
-    """
-    Return the individual quaternion conjugates (qr, qd)* = (qr*, qd*)
-
-    This is equivalent to inverse of a homogeneous matrix. It is used in applying
-    a transformation to a line expressed in Plucker coordinates.
-    See also DualQuaternion.dual_conjugate() and DualQuaternion.combined_conjugate().
-    """
-    
-    return nquat.conj(q_r), nquat.conj(q_d)
+    return nquat.conj(q_r), -nquat.conj(q_d)
 
 def inv(q_r, q_d):
     """
@@ -64,8 +40,7 @@ def translation(q_r, q_d):
     Get the translation component of the dual quaternion in vector form (tested)
     """
     
-    #mult = nquat.mul((2.0 * q_d), nquat.conj(nquat.normalize(q_r)))
-    mult = nquat.mul((2.0 * q_d), nquat.conj(q_r))
+    mult = nquat.mul((2.0 * q_d), nquat.conj(nquat.normalize(q_r)))
     return mult[1:]
     
 
@@ -77,14 +52,6 @@ def mul(q1_r, q1_d, q2_r, q2_d):
         dq1 * dq2 = q1_r * q2_r + (q1_r * q2_d + q1_d * q2_r) * eps
     """
     
-    # ugly: fix later
-    q1_r = q1_r.astype(np.float32)
-    q1_d = q1_d.astype(np.float32)
-    q2_r = q2_r.astype(np.float32)
-    q2_d = q2_d.astype(np.float32)
-    
-    #print("q1_r d ", q1_r.dtype, " q1_d d ", q1_d.dtype, " q2_r d ", q2_r.dtype, " q2_d d ", q2_d.dtype)
-
     q_r_prod = nquat.mul(q1_r, q2_r)
     q_d_prod = nquat.mul(q1_r, q2_d) + nquat.mul(q1_d, q2_r)
     
@@ -140,16 +107,11 @@ def hmat2dq(matrix):
     """
     Create dual quaternion from a 4 by 4 homogeneous transformation matrix (tested)
     """
-    
-    #q_r = nquat.mat2quat(matrix[:3, :3])
+
     q_r = nquat.normalize(nquat.mat2quat(matrix[:3, :3]))
-    
     v_t = matrix[:3, 3]
     
-    q_d = nquat.mul(np.array([0.0, v_t[0], v_t[1], v_t[2]]) * 0.5, q_r)
- 
-    
-    #q_d = nquat.mul(0.5 * np.array([0, v_t[0], v_t[1], v_t[2]]), q_r)
+    q_d = nquat.mul(0.5 * np.array([0, v_t[0], v_t[1], v_t[2]]), q_r)
     
     return q_r, q_d
 
@@ -169,7 +131,7 @@ def qtvec2dq(q_r, v_t):
     """
     Create a dual quaternion from a quaternion q_r and translation v_t (tested)
     """
-    q_r = nquat.normalize(q_r)
+    
     q_d = nquat.mul(0.5 * np.array([0.0, v_t[0], v_t[1], v_t[2]]), q_r)
     
     return q_r, q_d
@@ -206,7 +168,7 @@ def normalize(q_r, q_d):
 
 def pow(q_r, q_d, exp):
     """
-    exponent (tested)
+    exponent (semi-tested)
     """
     
     #print("pow q_r ", q_r, " q_d ", q_d)
@@ -243,79 +205,9 @@ def pow(q_r, q_d, exp):
     powq_d_v = exp * d / 2 * np.cos(exp * theta / 2) * s0 + np.sin(exp * theta / 2) * se
     powq_d = np.hstack((powq_d_s, powq_d_v))
     
-    powq_r = powq_r.astype(q_r.dtype)
-    powq_d = powq_r.astype(q_d.dtype)
-    
-    #print("pow q_r d ", q_r.dtype, " q_d d ", q_d.dtype, " powq_r d ", powq_r.dtype, " powq_d d ", powq_d.dtype)
-    
     return powq_r, powq_d
 
-# from Achllle (https://github.com/Achllle/dual_quaternions)
-def screw(q_r, q_d):
-    # tested
-    """
-    Get the screw parameters for this dual quaternion.
-    Chasles' theorem (Mozzi, screw theorem) states that any rigid displacement is equivalent to a rotation about
-    some line and a translation in the direction of the line. This line does not go through the origin!
-    This function returns the Plucker coordinates for the screw axis (l, m) as well as the amount of rotation
-    and translation, theta and d.
-    If the dual quaternion represents a pure translation, theta will be zero and the screw moment m will be at
-    infinity.
-
-    :return: l (unit length), m, theta, d
-    :rtype np.array(3), np.array(3), float, float
-    """
     
-    # start by extracting theta and l directly from the real part of the dual quaternion
-    theta = nquat.angle(q_r)
-    theta_close_to_zero = np.isclose(theta, 0)
-    t = translation(q_r, q_d)
-
-    if not theta_close_to_zero:
-        vec = nquat.vector(q_r)
-        l = vec / np.sin(theta/2)  # since q_r is normalized, l should be normalized too
-
-        # displacement d along the line is the projection of the translation onto the line l
-        d = np.dot(t, l)
-
-        # m is a bit more complicated. Derivation see K. Daniliidis, Hand-eye calibration using Dual Quaternions
-        m = 0.5 * (np.cross(t, l) + np.cross(l, np.cross(t, l) / np.tan(theta / 2)))
-    else:
-        # l points along the translation axis
-        d = np.linalg.norm(t)
-
-        if not np.isclose(d, 0):  # unit transformation
-            l = t / d
-        else:
-            l = (0, 0, 0)
-            
-        m = np.array([np.inf, np.inf, np.inf])
-
-    return l, m, theta, d
-
-# from Achllle (https://github.com/Achllle/dual_quaternions)
-def from_screw(l, m, theta, d):
-        """
-        Create a DualQuaternion from screw parameters
-
-        :param l: unit vector defining screw axis direction
-        :param m: screw axis moment, perpendicular to l and through the origin
-        :param theta: screw angle; rotation around the screw axis
-        :param d: displacement along the screw axis
-        """
-        l = np.array(l)
-        m = np.array(m)
-        if not np.isclose(np.linalg.norm(l), 1):
-            raise AttributeError("Expected l to be a unit vector, received {} with norm {} instead"
-                                 .format(l, np.linalg.norm(l)))
-        theta = float(theta)
-        d = float(d)
-        
-        q_r = np.hstack((np.array([np.cos(theta/2)]), np.sin(theta/2) * l))
-        q_d = np.hstack((np.array([-d/2 * np.sin(theta/2)]), np.sin(theta/2) * m + d/2 * np.cos(theta/2) * l))
-        
-        return q_r, q_d
-
 def sclerp(q1_r, q1_d, q2_r, q2_d, t):
     """
     Screw Linear Interpolation (semi-tested)
@@ -335,6 +227,45 @@ def sclerp(q1_r, q1_d, q2_r, q2_d, t):
     #print("stop r", q2_r, " d ", q2_d)
     #print("start * (start.inverse() * stop) ", mul(*mul(q1_r, q1_d, *inv(q1_r, q1_d)), q2_r, q2_d))
     
-    #print("sclerp q1_r.d ", q1_r.dtype, " q1_d d ", q1_d.dtype, " q2_r d ", q2_r.dtype, " q2_d d ", q2_d.dtype, " t d ", t.dtype )
-    
     return mul(q1_r, q1_d, *pow( *(mul(*inv(q1_r, q1_d), q2_r, q2_d)), t))
+
+
+
+def localquats2currentdq(lq, offsets, parh,joints_num = 32):
+    """takes in local quaternion, offsets, and parents to produce hierarchy-aware dual quaternions
+
+    inputs
+    ------
+    lq: array of local quaternions, size: (T,J*4) (#frames x (number of joints used*4))
+    offsets: array, size: #joints used x 3
+    parh: parents list , for us size = 31 (I think for MotioNet - the joints that the network predicts)
+
+
+    outputs
+    -------
+    allcq: current dual quaternions for each joint, size: #frames x (#joints used *8)
+    """
+    allcq = []
+    # print(parh)
+    for ff in range(lq.shape[0]):
+        cq = {}
+        for i in range(joints_num):
+            if i == 0:
+                cq[i] = DualQuaternion.from_quat_pose_array(
+                    list(lq[ff, i * 4:i * 4 + 4]) + list(offsets[0])).normalized().dq_array()
+            else:
+                cq[i] = (DualQuaternion.from_dq_array((cq[parh[i]])) * DualQuaternion.from_quat_pose_array(
+                    list(lq[ff, i * 4:i * 4 + 4]) + list(offsets[i]))).normalized().dq_array()
+        temp = []
+        for i in cq.items():
+            temp.append(i[1][0])
+            temp.append(i[1][1])
+            temp.append(i[1][2])
+            temp.append(i[1][3])
+            temp.append(i[1][4])
+            temp.append(i[1][5])
+            temp.append(i[1][6])
+            temp.append(i[1][7])
+        allcq.append(temp)
+    allcq = np.array(allcq)
+    return allcq
