@@ -1,6 +1,6 @@
 """
-same as aae_quat_celoss_weighted_joints.py
-but for reading multiple bvh files
+A variational autoencoder for motion capture data of a solo dancer
+this is for motion capture data that stores joint rotations and recorded in BVH or FBX format
 """
 
 import torch
@@ -14,6 +14,7 @@ import numpy as np
 
 from common import utils
 from common import bvh_tools as bvh
+from common import fbx_tools as fbx
 from common import mocap_tools as mocap
 from common.quaternion import qmul, qrot, qnormalize_np, slerp, qfix
 from common.pose_renderer import PoseRenderer
@@ -21,69 +22,37 @@ from common.pose_renderer import PoseRenderer
 from sklearn.manifold import TSNE
 from matplotlib import pyplot as plt
 
+"""
+Compute Unit
+"""
 
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 print('Using {} device'.format(device))
 
-# mocap settings
-# mocap settings
+"""
+Mocap Settings
+"""
+
 # important: the skeleton needs to be identical in all mocap recordings
 
 """
-mocap_file_path = "../../../../../../Data/mocap/stocos/solos/"
-mocap_files = ["Muriel_Take1.bvh",
-               "Muriel_Take2.bvh",
-               "Muriel_Take3.bvh",
-               "Muriel_Take4.bvh",
-               "Muriel_Take5.bvh",
-               "Muriel_Take6.bvh"]
-
-mocap_valid_frame_ranges = [ [ 0, 16709 ],
-                            [ 0, 11540 ],
-                            [ 0, 12373 ],
-                            [ 0, 5006 ],
-                            [ 0, 27628 ],
-                            [ 0, 12380 ]]
+mocap_file_path = "D:/Data/mocap/Daniel/Zed/fbx/"
+mocap_files = ["daniel_zed_solo1.fbx"]
+mocap_valid_frame_ranges = [ [ 0, 9100 ] ]
+mocap_fps = 30
 """
 
-mocap_file_path = "../../../../../../Data/mocap/stocos/solos/"
-mocap_files = ["Muriel_Take2.bvh", "Muriel_Take4.bvh"]
-mocap_valid_frame_ranges = [ [ 0, 11540 ], [ 0, 5006 ] ]
+mocap_file_path = "D:/Data/mocap/motionbank/fbx"
+mocap_files = ["amber_music_improvisation.fbx"]
+mocap_valid_frame_ranges = [ [ 2400, 24200 ] ]
+mocap_pos_scale = 0.1
+mocap_fps = 30
 
-joint_loss_weights = [
-    1.0, # Hips
-    1.0, # RightUpLeg
-    1.0, # RightLeg
-    1.0, # RightFoot
-    1.0, # RightToeBase
-    1.0, # RightToeBase_Nub
-    1.0, # LeftUpLeg
-    1.0, # LeftLeg
-    1.0, # LeftFoot
-    1.0, # LeftToeBase
-    1.0, # LeftToeBase_Nub
-    1.0, # Spine
-    1.0, # Spine1
-    1.0, # Spine2
-    1.0, # Spine3
-    1.0, # LeftShoulder
-    1.0, # LeftArm
-    1.0, # LeftForeArm
-    1.0, # LeftHand
-    1.0, # LeftHand_Nub
-    1.0, # RightShoulder
-    1.0, # RightArm
-    1.0, # RightForeArm
-    1.0, # RightHand
-    1.0, # RightHand_Nub
-    1.0, # Neck
-    1.0, # Head
-    1.0 # Head_Nub
-    ]
 
-mocap_fps = 50
+"""
+Model Settings
+"""
 
-# model settings
 latent_dim = 32
 sequence_length = 64
 ae_rnn_layer_count = 2
@@ -99,12 +68,14 @@ load_weights = False
 encoder_weights_file = "results_xsens_64/weights/encoder_weights_epoch_600"
 decoder_weights_file = "results_xsens_64/weights/decoder_weights_epoch_600"
 
-# training settings
+"""
+Training Settings
+"""
+
 sequence_offset = 2 # when creating sequence excerpts, each excerpt is offset from the previous one by this value
 batch_size = 16
 train_percentage = 0.8 # train / test split
 test_percentage  = 0.2
-dp_learning_rate = 5e-4
 ae_learning_rate = 1e-4
 ae_norm_loss_scale = 0.1
 ae_pos_loss_scale = 0.1
@@ -120,14 +91,65 @@ epochs = 600
 model_save_interval = 50
 save_history = True
 
-# visualization settings
+"""
+# zed body34 specific joint loss weights
+# todo: this information should be stored in config files
+joint_loss_weights = [
+    1.0, # PELVIS
+    1.0, # NAVAL SPINE
+    1.0, # CHEST SPINE
+    1.0, # RIGHT CLAVICLE
+    1.0, # RIGHT SHOULDER
+    1.0, # RIGHT ELBOW
+    1.0, # RIGHT WRIST
+    1.0, # RIGHT HAND
+    0.1, # RIGHT HANDTIP
+    0.1, # RIGHT THUMB
+    1.0, # NECK
+    1.0, # HEAD
+    0.1, # NOSE
+    0.1, # LEFT EYE
+    0.1, # LEFT EAR
+    0.1, # RIGHT EYE
+    0.1, # RIGHT EAR
+    1.0, # LEFT CLAVICLE
+    1.0, # LEFT SHOULDER
+    1.0, # LEFT ELBOW
+    1.0, # LEFT WRIST
+    1.0, # LEFT HAND
+    0.1, # LEFT HANDTIP
+    0.1, # LEFT THUMB
+    1.0, # LEFT HIP
+    1.0, # LEFT KNEE
+    1.0, # LEFT ANKLE
+    1.0, # LEFT FOOT
+    1.0, # LEFT HEEL
+    1.0, # RIGHT HIP
+    1.0, # RIGHT KNEE
+    1.0, # RIGHT ANKLE
+    1.0, # RIGHT FOOT
+    1.0 # RIGHT HEEL
+    ]
+"""
+
+# for skeletons with main body joints only
+joint_loss_weights = [1.0]
+
+"""
+Visualization Settings
+"""
+
 view_ele = 90.0
 view_azi = -90.0
 view_line_width = 1.0
 view_size = 4.0
 
-# load mocap data
+"""
+Load Mocap Data
+"""
+
 bvh_tools = bvh.BVH_Tools()
+fbx_tools = fbx.FBX_Tools()
 mocap_tools = mocap.Mocap_Tools()
 
 all_mocap_data = []
@@ -136,8 +158,16 @@ for mocap_file in mocap_files:
     
     print("process file ", mocap_file)
     
-    bvh_data = bvh_tools.load(mocap_file_path + "/" + mocap_file)
-    mocap_data = mocap_tools.bvh_to_mocap(bvh_data)
+    if mocap_file.endswith(".bvh") or mocap_file.endswith(".BVH"):
+        bvh_data = bvh_tools.load(mocap_file_path + "/" + mocap_file)
+        mocap_data = mocap_tools.bvh_to_mocap(bvh_data)
+    elif mocap_file.endswith(".fbx") or mocap_file.endswith(".FBX"):
+        fbx_data = fbx_tools.load(mocap_file_path + "/" + mocap_file)
+        mocap_data = mocap_tools.fbx_to_mocap(fbx_data)[0] # first skeleton only
+        
+    mocap_data["skeleton"]["offsets"] *= mocap_pos_scale
+    mocap_data["motion"]["pos_local"] *= mocap_pos_scale
+    
     mocap_data["motion"]["rot_local"] = mocap_tools.euler_to_quat(mocap_data["motion"]["rot_local_euler"], mocap_data["rot_sequence"])
 
     all_mocap_data.append(mocap_data)
@@ -164,6 +194,10 @@ def get_edge_list(children):
     return edge_list
 
 edge_list = get_edge_list(children)
+
+"""
+Create Dataset
+"""
 
 # gather pose sequence excerpts
 
@@ -209,7 +243,9 @@ train_dataset, test_dataset = torch.utils.data.random_split(full_dataset, [train
 train_dataloader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
 test_dataloader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False)
 
-# create models
+"""
+Create Models
+"""
 
 # create encoder model
 
@@ -276,31 +312,8 @@ encoder = Encoder(sequence_length, pose_dim, latent_dim, ae_rnn_layer_count, ae_
 
 print(encoder)
 
-if save_models == True:
-    encoder.train()
-    
-    # save using pickle
-    torch.save(encoder, "results/models/encoder.pth")
-    
-    # save using onnx
-    x = torch.zeros((1, sequence_length, pose_dim)).to(device)
-    torch.onnx.export(encoder, x, "results/models/encoder.onnx")
-    
-    encoder.test()
-
-if save_tscript == True:
-    encoder.train()
-    
-    # save using TochScript
-    x = torch.rand((1, sequence_length, pose_dim), dtype=torch.float32).to(device)
-    script_module = torch.jit.trace(encoder, x)
-    script_module.save("results/models/encoder.pt")
-    
-    encoder.test()
-
 if load_weights and encoder_weights_file:
     encoder.load_state_dict(torch.load(encoder_weights_file, map_location=device))
-    
     
 # create decoder model
 
@@ -377,28 +390,6 @@ decoder = Decoder(sequence_length, pose_dim, latent_dim, ae_rnn_layer_count, ae_
 
 print(decoder)
 
-if save_models == True:
-    decoder.eval()
-    
-    # save using pickle
-    torch.save(decoder, "results/models/decoder_weights.pth")
-    
-    # save using onnx
-    x = torch.zeros((1, latent_dim)).to(device)
-    torch.onnx.export(decoder, x, "results/models/decoder.onnx")
-    
-    decoder.train()
-
-if save_tscript == True:
-    decoder.eval()
-    
-    # save using TochScript
-    x = torch.rand((1, latent_dim), dtype=torch.float32).to(device)
-    script_module = torch.jit.trace(decoder, x)
-    script_module.save("results/models/decoder.pt")
-    
-    decoder.train()
-
 if load_weights and decoder_weights_file:
     decoder.load_state_dict(torch.load(decoder_weights_file, map_location=device))
     
@@ -436,6 +427,14 @@ ae_scheduler = torch.optim.lr_scheduler.StepLR(ae_optimizer, step_size=100, gamm
 mse_loss = nn.MSELoss()
 cross_entropy = nn.BCELoss()
 
+# joint loss weights
+
+if len(joint_loss_weights) == 1:
+    joint_loss_weights *= joint_count
+
+joint_loss_weights = torch.tensor(joint_loss_weights, dtype=torch.float32)
+joint_loss_weights = joint_loss_weights.reshape(1, 1, -1).to(device)
+
 # KL Divergence
 
 def variational_loss(mu, std):
@@ -455,27 +454,6 @@ def variational_loss2(mu, std):
 def reparameterize(mu, std):
     z = mu + std*torch.randn_like(std)
     return z
-
-# joint loss weights
-
-joint_loss_weights = torch.tensor(joint_loss_weights, dtype=torch.float32)
-joint_loss_weights = joint_loss_weights.reshape(1, 1, -1).to(device)
-
-# function returning normal distributed random data 
-# serves as reference for the discriminator to distinguish the encoders prior from
-def sample_normal(shape):
-    return torch.tensor(np.random.normal(size=shape), dtype=torch.float32).to(device)
-
-# discriminator prior loss function
-def disc_prior_loss(disc_real_output, disc_fake_output):
-    ones = torch.ones_like(disc_real_output).to(device)
-    zeros = torch.zeros_like(disc_fake_output).to(device)
-
-    real_loss = cross_entropy(disc_real_output, ones)
-    fake_loss = cross_entropy(disc_fake_output, zeros)
-
-    total_loss = (real_loss + fake_loss) * 0.5
-    return total_loss
 
 def ae_norm_loss(yhat):
     
@@ -545,42 +523,6 @@ def ae_pos_loss(y, yhat):
     return _loss
 
 def ae_quat_loss(y, yhat):
-    _y_rot = y.view(-1, 4)
-    _yhat_rot = yhat.view(-1, 4)
-    
-    _yhat_norm = nn.functional.normalize(_yhat_rot, p=2, dim=1)
-    
-    _loss = mse_loss(_yhat_norm, _y_rot)
-
-    return _loss
-
-"""
-def ae_quat_loss(y, yhat):
-    # y and yhat shapes: batch_size, seq_length, pose_dim
-    
-    # normalize quaternion
-    
-    _y = y.view((-1, 4))
-    _yhat = yhat.view((-1, 4))
-
-    _yhat_norm = nn.functional.normalize(_yhat, p=2, dim=1)
-    
-    # inverse of quaternion: https://www.mathworks.com/help/aeroblks/quaternioninverse.html
-    _yhat_inv = _yhat_norm * torch.tensor([[1.0, -1.0, -1.0, -1.0]], dtype=torch.float32).to(device)
-
-    # calculate difference quaternion
-    _diff = qmul(_yhat_inv, _y)
-    # length of complex part
-    _len = torch.norm(_diff[:, 1:], dim=1)
-    # atan2
-    _atan = torch.atan2(_len, _diff[:, 0])
-    # abs
-    _abs = torch.abs(_atan)
-    _loss = torch.mean(_abs)   
-    return _loss
-"""
-
-def ae_quat_loss(y, yhat):
     # y and yhat shapes: batch_size, seq_length, pose_dim
     
     # normalize quaternion
@@ -610,7 +552,6 @@ def ae_quat_loss(y, yhat):
     
     _loss = torch.mean(_abs_weighted)   
     return _loss
-
 
 # autoencoder loss function
 def ae_loss(y, yhat, mu, std):
@@ -778,14 +719,15 @@ torch.save(decoder.state_dict(), "results/weights/decoder_weights_epoch_{}".form
 
 poseRenderer = PoseRenderer(edge_list)
 
-def create_ref_sequence_anim(seq_index, file_name):
-    sequence_excerpt = pose_sequence_excerpts[seq_index]
-    sequence_excerpt = np.reshape(sequence_excerpt, (sequence_length, joint_count, joint_dim))
+def export_sequence_anim(pose_sequence, file_name):
     
-    sequence_excerpt = torch.tensor(np.expand_dims(sequence_excerpt, axis=0)).to(device)
-    zero_trajectory = torch.tensor(np.zeros((1, sequence_length, 3), dtype=np.float32)).to(device)
+    pose_count = pose_sequence.shape[0]
+    pose_sequence = np.reshape(pose_sequence, (pose_count, joint_count, joint_dim))
     
-    skel_sequence = forward_kinematics(sequence_excerpt, zero_trajectory)
+    pose_sequence = torch.tensor(np.expand_dims(pose_sequence, axis=0)).to(device)
+    zero_trajectory = torch.tensor(np.zeros((1, pose_count, 3), dtype=np.float32)).to(device)
+    
+    skel_sequence = forward_kinematics(pose_sequence, zero_trajectory)
     
     skel_sequence = skel_sequence.detach().cpu().numpy()
     skel_sequence = np.squeeze(skel_sequence)    
@@ -794,42 +736,41 @@ def create_ref_sequence_anim(seq_index, file_name):
     skel_images = poseRenderer.create_pose_images(skel_sequence, view_min, view_max, view_ele, view_azi, view_line_width, view_size, view_size)
     skel_images[0].save(file_name, save_all=True, append_images=skel_images[1:], optimize=False, duration=33.0, loop=0)
 
-def create_rec_sequence_anim(seq_index, file_name):
-    sequence_excerpt = pose_sequence_excerpts[seq_index]
-    sequence_excerpt = np.expand_dims(sequence_excerpt, axis=0)
+def export_sequence_bvh(pose_sequence, file_name):
     
-    sequence_excerpt = torch.from_numpy(sequence_excerpt).to(device)
+    pose_count = pose_sequence.shape[0]
 
-    with torch.no_grad():
-        encoder_output = encoder(sequence_excerpt)
+    pred_dataset = {}
+    pred_dataset["frame_rate"] = mocap_data["frame_rate"]
+    pred_dataset["rot_sequence"] = mocap_data["rot_sequence"]
+    pred_dataset["skeleton"] = mocap_data["skeleton"]
+    pred_dataset["motion"] = {}
+    pred_dataset["motion"]["pos_local"] = np.repeat(np.expand_dims(pred_dataset["skeleton"]["offsets"], axis=0), pose_count, axis=0)
+    pred_dataset["motion"]["rot_local"] = pose_sequence
+    pred_dataset["motion"]["rot_local_euler"] = mocap_tools.quat_to_euler(pred_dataset["motion"]["rot_local"], pred_dataset["rot_sequence"])
 
-        encoder_output_mu = encoder_output[0]
-        encoder_output_std = encoder_output[1]
-        mu = torch.tanh(encoder_output_mu)
-        std = torch.abs(torch.tanh(encoder_output_std)) + 0.00001
-        
-        decoder_input = reparameterize(mu, std)
+    pred_bvh = mocap_tools.mocap_to_bvh(pred_dataset)
     
-        pred_sequence = decoder(decoder_input)
-        
-    pred_sequence = torch.squeeze(pred_sequence)
-    pred_sequence = pred_sequence.view((-1, 4))
-    pred_sequence = nn.functional.normalize(pred_sequence, p=2, dim=1)
-    pred_sequence = pred_sequence.view((1, sequence_length, joint_count, joint_dim))
+    bvh_tools.write(pred_bvh, file_name)
 
-    zero_trajectory = torch.tensor(np.zeros((1, sequence_length, 3), dtype=np.float32))
-    zero_trajectory = zero_trajectory.to(device)
+def export_sequence_fbx(pose_sequence, file_name):
+    
+    pose_count = pose_sequence.shape[0]
+    
+    pred_dataset = {}
+    pred_dataset["frame_rate"] = mocap_data["frame_rate"]
+    pred_dataset["rot_sequence"] = mocap_data["rot_sequence"]
+    pred_dataset["skeleton"] = mocap_data["skeleton"]
+    pred_dataset["motion"] = {}
+    pred_dataset["motion"]["pos_local"] = np.repeat(np.expand_dims(pred_dataset["skeleton"]["offsets"], axis=0), pose_count, axis=0)
+    pred_dataset["motion"]["rot_local"] = pose_sequence
+    pred_dataset["motion"]["rot_local_euler"] = mocap_tools.quat_to_euler(pred_dataset["motion"]["rot_local"], pred_dataset["rot_sequence"])
+    
+    pred_fbx = mocap_tools.mocap_to_fbx([pred_dataset])
+    
+    fbx_tools.write(pred_fbx, file_name)
 
-    skel_sequence = forward_kinematics(pred_sequence, zero_trajectory)
-
-    skel_sequence = skel_sequence.detach().cpu().numpy()
-    skel_sequence = np.squeeze(skel_sequence)    
-
-    view_min, view_max = utils.get_equal_mix_max_positions(skel_sequence)
-    skel_images = poseRenderer.create_pose_images(skel_sequence, view_min, view_max, view_ele, view_azi, view_line_width, view_size, view_size)
-    skel_images[0].save(file_name, save_all=True, append_images=skel_images[1:], optimize=False, duration=33.0, loop=0)
-
-def encode_sequences(frame_indices):
+def encode_sequences(orig_sequence, frame_indices):
     
     encoder.eval()
     
@@ -840,7 +781,8 @@ def encode_sequences(frame_indices):
     for excerpt_index in range(seq_excerpt_count):
         excerpt_start_frame = frame_indices[excerpt_index]
         excerpt_end_frame = excerpt_start_frame + sequence_length
-        excerpt = pose_sequence[excerpt_start_frame:excerpt_end_frame]
+
+        excerpt = orig_sequence[excerpt_start_frame:excerpt_end_frame]
         excerpt = np.expand_dims(excerpt, axis=0)
         excerpt = torch.from_numpy(excerpt).reshape(1, sequence_length, pose_dim).to(device)
 
@@ -864,7 +806,7 @@ def encode_sequences(frame_indices):
         
     return latent_vectors
 
-def decode_sequence_encodings(sequence_encodings, seq_overlap, base_pose, file_name):
+def decode_sequence_encodings(sequence_encodings, seq_overlap, base_pose):
     
     decoder.eval()
     
@@ -900,23 +842,10 @@ def decode_sequence_encodings(sequence_encodings, seq_overlap, base_pose, file_n
     gen_sequence = gen_sequence / np.linalg.norm(gen_sequence, ord=2, axis=1, keepdims=True)
     gen_sequence = gen_sequence.reshape((gen_seq_length, joint_count, joint_dim))
     gen_sequence = qfix(gen_sequence)
-    gen_sequence = np.expand_dims(gen_sequence, axis=0)
-    gen_sequence = torch.from_numpy(gen_sequence).to(device)
-    
-    zero_trajectory = torch.tensor(np.zeros((1, gen_seq_length, 3), dtype=np.float32))
-    zero_trajectory = zero_trajectory.to(device)
-    
-    skel_sequence = forward_kinematics(gen_sequence, zero_trajectory)
-    
-    skel_sequence = skel_sequence.detach().cpu().numpy()
-    skel_sequence = np.squeeze(skel_sequence)
-    
-    view_min, view_max = utils.get_equal_mix_max_positions(skel_sequence)
-    skel_images = poseRenderer.create_pose_images(skel_sequence, view_min, view_max, view_ele, view_azi, view_line_width, view_size, view_size)
 
-    skel_images[0].save(file_name, save_all=True, append_images=skel_images[1:], optimize=False, duration=33.0, loop=0) 
-    
     decoder.train()
+    
+    return gen_sequence
     
 def create_2d_latent_space_representation(sequence_excerpts):
 
@@ -985,55 +914,56 @@ def create_2d_latent_space_image(Z_tsne, highlight_excerpt_ranges, file_name):
 Z_tsne = create_2d_latent_space_representation(pose_sequence_excerpts)
 create_2d_latent_space_image(Z_tsne, [], "latent_space_plot_epoch_{}.png".format(epochs))
 
-# create single original sequence
+# create original sequence
 
-pose_sequence = all_mocap_data[0]["motion"]["rot_local"].astype(np.float32)
+orig_sequence = all_mocap_data[0]["motion"]["rot_local"].astype(np.float32)
 
-seq_index = 1000
+seq_start = 7000
+seq_length = 2000
 
-create_ref_sequence_anim(seq_index, "results/anims/orig_sequence_seq_{}.gif".format(seq_index))
+export_sequence_anim(orig_sequence[seq_start:seq_start+seq_length], "results/anims/orig_sequence_seq_start_{}_length_{}.gif".format(seq_start, seq_length))
+export_sequence_fbx(orig_sequence[seq_start:seq_start+seq_length], "results/anims/orig_sequence_seq_start_{}_length_{}.fbx".format(seq_start, seq_length))
 
-# recontruct single sequence
 
-seq_index = 1000
+# recontruct original sequence
 
-create_rec_sequence_anim(seq_index, "results/anims/rec_sequence_epoch_{}_seq_{}.gif".format(epochs, seq_index))
+seq_start = 1000
+seq_length = 1000
+seq_overlap = 16 # 2 for 8, 32 for 128
+base_pose = np.reshape(orig_sequence[0], (joint_count, joint_dim))
 
-# configure sequence blending
-seq_overlap = 4 # 2 for 8, 32 for 128
-base_pose = np.reshape(pose_sequence[0], (joint_count, joint_dim))
+seq_indices = [ frame_index for frame_index in range(seq_start, seq_start + seq_length, seq_overlap)]
 
-# reconstruct original pose sequence
-start_seq_index = 1000
-end_seq_index = 1512
-seq_indices = [ frame_index for frame_index in range(start_seq_index, end_seq_index, seq_overlap)]
+seq_encodings = encode_sequences(orig_sequence, seq_indices)
+gen_sequence = decode_sequence_encodings(seq_encodings, seq_overlap, base_pose)
+export_sequence_anim(gen_sequence, "results/anims/rec_sequences_epoch_{}_seq_start_{}_length_{}.gif".format(epochs, seq_start, seq_length))
+export_sequence_fbx(gen_sequence, "results/anims/rec_sequences_epoch_{}_seq_start_{}_length_{}.fbx".format(epochs, seq_start, seq_length))
 
-seq_encodings = encode_sequences(seq_indices)
-decode_sequence_encodings(seq_encodings, seq_overlap, base_pose, "results/anims/rec_sequences_epochs_{}_seq_{}-{}.gif".format(epochs, start_seq_index, end_seq_index))
 
-# random walk
-start_seq_index = 1000
-seq_frame_count = 32 
+# random walk in latent space
+seq_start = 1000
+seq_length = 1000
 
-seq_indices = [start_seq_index]
+seq_indices = [seq_start]
 
-seq_encodings = encode_sequences(seq_indices)
+seq_encodings = encode_sequences(orig_sequence, seq_indices)
 
-for index in range(0, seq_frame_count - 1):
+for index in range(0, seq_length // seq_overlap):
     random_step = np.random.random((latent_dim)).astype(np.float32) * 2.0
     seq_encodings.append(seq_encodings[index] + random_step)
-
-decode_sequence_encodings(seq_encodings, seq_overlap, base_pose, "results/anims/seq_randwalk_epoch_{}_seq_{}_{}.gif".format(epochs, start_seq_index, seq_frame_count))
-
+    
+gen_sequence = decode_sequence_encodings(seq_encodings, seq_overlap, base_pose)
+export_sequence_anim(gen_sequence, "results/anims/seq_randwalk_epoch_{}_seq_start_{}_length_{}.gif".format(epochs, seq_start, seq_length))
+export_sequence_fbx(gen_sequence, "results/anims/seq_randwalk_epoch_{}_seq_start_{}_length_{}.fbx".format(epochs, seq_start, seq_length))
 
 # sequence offset following
 
-seq_start_index = 1000
-seq_end_index = 2000
+seq_start = 1000
+seq_length = 1000
     
-seq_indices = [ seq_index for seq_index in range(seq_start_index, seq_end_index, seq_overlap)]
+seq_indices = [ seq_index for seq_index in range(seq_start, seq_start + seq_length, seq_overlap)]
 
-seq_encodings = encode_sequences(seq_indices)
+seq_encodings = encode_sequences(orig_sequence, seq_indices)
 
 offset_seq_encodings = []
 
@@ -1043,23 +973,23 @@ for index in range(len(seq_encodings)):
     offset_seq_encoding = seq_encodings[index] + offset
     offset_seq_encodings.append(offset_seq_encoding)
     
-decode_sequence_encodings(offset_seq_encodings, seq_overlap, base_pose, "results/anims/seq_offset_epoch_{}_seq_{}-{}.gif".format(epochs, seq_start_index, seq_end_index))
+gen_sequence = decode_sequence_encodings(offset_seq_encodings, seq_overlap, base_pose)
+export_sequence_anim(gen_sequence, "results/anims/seq_offset_epoch_{}_seq_start_{}_length_{}.gif".format(epochs, seq_start, seq_length))
+export_sequence_fbx(gen_sequence, "results/anims/seq_offset_epoch_{}_seq_start_{}_length_{}.fbx".format(epochs, seq_start, seq_length))
 
 
 
 # interpolate two original sequences
 
-seq1_start_index = 1000
-seq1_end_index = 2000
+seq1_start = 1000
+seq2_start = 2000
+seq_length = 1000
 
-seq2_start_index = 2000
-seq2_end_index = 3000
+seq1_indices = [ seq_index for seq_index in range(seq1_start, seq1_start + seq_length, seq_overlap)]
+seq2_indices = [ seq_index for seq_index in range(seq2_start, seq2_start + seq_length, seq_overlap)]
 
-seq1_indices = [ seq_index for seq_index in range(seq1_start_index, seq1_end_index, seq_overlap)]
-seq2_indices = [ seq_index for seq_index in range(seq2_start_index, seq2_end_index, seq_overlap)]
-
-seq1_encodings = encode_sequences(seq1_indices)
-seq2_encodings = encode_sequences(seq2_indices)
+seq1_encodings = encode_sequences(orig_sequence, seq1_indices)
+seq2_encodings = encode_sequences(orig_sequence, seq2_indices)
 
 mix_encodings = []
 
@@ -1068,176 +998,7 @@ for index in range(len(seq1_encodings)):
     mix_encoding = seq1_encodings[index] * (1.0 - mix_factor) + seq2_encodings[index] * mix_factor
     mix_encodings.append(mix_encoding)
 
-decode_sequence_encodings(mix_encodings, seq_overlap, base_pose, "results/anims/seq_mix_epoch_{}_seq1_{}-{}_seq2_{}-{}.gif".format(epochs, seq1_start_index, seq1_end_index, seq2_start_index, seq2_end_index))
+gen_sequence = decode_sequence_encodings(mix_encodings, seq_overlap, base_pose)
+export_sequence_anim(gen_sequence, "results/anims/seq_mix_epoch_{}_seq1_start_{}_seq2_start_{}_length_{}.gif".format(epochs, seq1_start, seq2_start, seq_length))
+export_sequence_fbx(gen_sequence, "results/anims/seq_mix_epoch_{}_seq1_start_{}_seq2_start_{}_length_{}.fbx".format(epochs, seq1_start, seq2_start, seq_length))
 
-"""
-experiment with clustering encodings
-"""
-
-frame_indices = list(range(pose_sequence.shape[0]))
-encodings = np.array(encode_sequences(frame_indices))
-
-def create_2d_representation(data):
-
-    # use TSNE for dimensionality reduction
-    tsne = TSNE(n_components=2, n_iter=5000, verbose=1)    
-    Z_tsne = tsne.fit_transform(data)
-    
-    return Z_tsne
-
-encodings_2d = create_2d_representation(encodings)
-
-"""
-KMeans Clustering
-"""
-
-from sklearn.cluster import KMeans
-
-cluster_count = 6
-random_state = 170
-
-km = KMeans(n_clusters=cluster_count, n_init= "auto", random_state = random_state)
-labels =  km.fit_predict(encodings)
-
-labels_unique = np.unique(labels)
-n_clusters_ = len(labels_unique)
-
-# plot 2d clusters
-
-plt.figure(1)
-plt.clf()
-
-for k in range(cluster_count):
-    my_members = labels == k
-    plt.scatter(encodings_2d[my_members, 0], encodings_2d[my_members, 1], s=0.2)
-
-plt.title("KMeans Clustering")
-plt.show()
-
-
-"""
-MeanShift Clustering
-"""
-
-from sklearn.cluster import MeanShift, estimate_bandwidth
-
-# automatically estimate bandwidth
-bandwidth = estimate_bandwidth(encodings, quantile=0.1, n_samples=500)
-
-ms = MeanShift(bandwidth=bandwidth)
-ms.fit(encodings)
-labels = ms.labels_
-cluster_centers = ms.cluster_centers_
-
-labels_unique = np.unique(labels)
-n_clusters_ = len(labels_unique)
-
-print("number of estimated clusters : %d" % n_clusters_)
-
-# plot 2d clusters
-
-plt.figure(1)
-plt.clf()
-
-for k in range(n_clusters_):
-    my_members = labels == k
-    plt.scatter(encodings_2d[my_members, 0], encodings_2d[my_members, 1], s=0.2)
-
-plt.title("Meanshift Clustering")
-plt.show()
-
-"""
-DBScan Clustering
-"""
-
-from sklearn.cluster import DBSCAN
-
-eps = 0.7
-
-db = DBSCAN(eps=eps, min_samples=10)
-fit = db.fit(encodings)
-labels = db.labels_
-
-# Number of clusters in labels, ignoring noise if present.
-n_clusters_ = len(set(labels)) - (1 if -1 in labels else 0)
-n_noise_ = list(labels).count(-1)
-
-print("Estimated number of clusters: %d" % n_clusters_)
-print("Estimated number of noise points: %d" % n_noise_)
-
-# plot 2d clusters
-
-plt.figure(1)
-plt.clf()
-
-for k in range(cluster_count):
-    my_members = labels == k
-    plt.scatter(encodings_2d[my_members, 0], encodings_2d[my_members, 1], s=0.2)
-
-plt.title("DBScan Clustering")
-plt.show()
-
-
-
-# debug
-# original sequence prediction function from GranularDance
-
-def create_pred_sequence_animation(start_frame, frame_count, seq_overlap, base_pose, file_name):
-
-    seq_env = np.hanning(sequence_length)
-    seq_excerpt_count = max((frame_count - sequence_length) // seq_overlap, 0) + 1
-    
-    print("seq_excerpt_count ", seq_excerpt_count)
-    
-    combined_seq_length = (seq_excerpt_count - 1) * seq_overlap + sequence_length
-
-    combined_pred_sequence = np.full(shape=(combined_seq_length, joint_count, joint_dim), fill_value=base_pose)
-    
-    for excerpt_index in range(seq_excerpt_count):
-        excerpt_start_frame = start_frame + excerpt_index * seq_overlap
-        excerpt_end_frame = excerpt_start_frame + sequence_length
-        
-        sequence_excerpt = pose_sequence[excerpt_start_frame:excerpt_end_frame]
-        sequence_excerpt = np.expand_dims(sequence_excerpt, axis=0)
-        sequence_excerpt = torch.from_numpy(sequence_excerpt).to(device)
-        
-        with torch.no_grad():
-            sequence_enc = encoder(sequence_excerpt)
-            pred_sequence = decoder(sequence_enc)
-            
-        pred_sequence = torch.squeeze(pred_sequence)
-            
-        pred_sequence = pred_sequence.detach().cpu().numpy()
-        pred_sequence = np.reshape(pred_sequence, (-1, joint_count, joint_dim))
-        
-        combined_frame = excerpt_index * seq_overlap
-        
-        for si in range(sequence_length):
-            for ji in range(joint_count): 
-                current_quat = combined_pred_sequence[combined_frame + si, ji, :]
-                target_quat = pred_sequence[si, ji, :]
-                quat_mix = seq_env[si]
-                mix_quat = slerp(current_quat, target_quat, quat_mix )
-                combined_pred_sequence[combined_frame + si, ji, :] = mix_quat
-    
-    combined_pred_sequence = torch.from_numpy(combined_pred_sequence)
-    combined_pred_sequence = combined_pred_sequence.view((-1, 4))
-    combined_pred_sequence = nn.functional.normalize(combined_pred_sequence, p=2, dim=1)
-    combined_pred_sequence = combined_pred_sequence.view((combined_seq_length, joint_count, joint_dim))
-    combined_pred_sequence = torch.unsqueeze(combined_pred_sequence, dim=0)
-    combined_pred_sequence = combined_pred_sequence.to(device)
-    
-    zero_trajectory = torch.zeros((1, combined_seq_length, 3), dtype=torch.float32)
-    zero_trajectory = zero_trajectory.to(device)
-
-    skel_sequence = forward_kinematics(combined_pred_sequence, zero_trajectory)
-    
-    skel_sequence = skel_sequence.detach().cpu().numpy()
-    skel_sequence = np.squeeze(skel_sequence)
-    
-    view_min, view_max = utils.get_equal_mix_max_positions(skel_sequence)
-    skel_images = poseRenderer.create_pose_images(skel_sequence, view_min, view_max, view_ele, view_azi, view_line_width, view_size, view_size)
-    skel_images[0].save(file_name, save_all=True, append_images=skel_images[1:], optimize=False, duration=33.0, loop=0)
-
-
-create_pred_sequence_animation(100, 512, seq_overlap, base_pose, "rec_100-612.gif")

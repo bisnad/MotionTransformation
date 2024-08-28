@@ -2,7 +2,9 @@ import pandas
 import math
 import numpy as np
 import transforms3d as t3d
+from scipy.spatial.transform import Rotation
 from common import bvh_tools as bvh
+from common import fbx_tools as fbx
 import copy
 
 class Mocap_Tools:
@@ -22,6 +24,33 @@ class Mocap_Tools:
         
         return mocap_data
     
+    def fbx_to_mocap(self, fbx_data):
+        
+        all_motion_data = []
+
+        for fbx_per_skel_data in fbx_data:
+            
+            skeleton = {}
+            skeleton["root"] = fbx_per_skel_data.skeleton_root
+            skeleton["joints"] = fbx_per_skel_data.skeleton_joints
+            skeleton["parents"] = fbx_per_skel_data.skeleton_parents
+            skeleton["children"] = fbx_per_skel_data.skeleton_children
+            skeleton["offsets"] = fbx_per_skel_data.skeleton_joint_offsets
+            
+            motion = {}
+            motion["pos_local"] = fbx_per_skel_data.motion_pos_local
+            motion["rot_local_euler"] = fbx_per_skel_data.motion_rot_local_euler
+            
+            motion_data = {}
+            motion_data["frame_rate"] = fbx_per_skel_data.motion_frame_rate 
+            motion_data["rot_sequence"] = fbx_per_skel_data.motion_rot_sequence
+            motion_data["skeleton"] = skeleton
+            motion_data["motion"] = motion
+            
+            all_motion_data.append(motion_data)
+    
+        return all_motion_data
+    
     def mocap_to_bvh(self, mocap_data):
         
         bvh_data = bvh.BVH_Data()
@@ -38,6 +67,34 @@ class Mocap_Tools:
         bvh_data.values = bvh_frames
         
         return bvh_data
+    
+    # warning: this doesn't create any fbx nodes
+    # the nodes are only created when writing the fmx_data to a file using the FBX_Tools 
+    def mocap_to_fbx(self, all_motion_data):
+        
+        fbx_data = []
+        
+        for motion_per_skel_data in all_motion_data:
+        
+            fbx_per_skel_data = fbx.FBX_Mocap_Data()
+            
+            motion_skeleton = motion_per_skel_data["skeleton"]
+            motion_motion = motion_per_skel_data["motion"]
+            
+            fbx_per_skel_data.motion_frame_rate = motion_per_skel_data["frame_rate"]
+            fbx_per_skel_data.motion_rot_sequence = motion_per_skel_data["rot_sequence"]
+            fbx_per_skel_data.skeleton_root = motion_skeleton["root"]
+            fbx_per_skel_data.skeleton_joints = motion_skeleton["joints"]
+            fbx_per_skel_data.skeleton_children = motion_skeleton["children"]
+            fbx_per_skel_data.skeleton_parents = motion_skeleton["parents"]
+            fbx_per_skel_data.skeleton_joint_offsets = motion_skeleton["offsets"]
+            fbx_per_skel_data.motion_pos_local = motion_motion["pos_local"]
+            fbx_per_skel_data.motion_rot_local_euler = motion_motion["rot_local_euler"]
+            fbx_per_skel_data.motion_frame_count = fbx_per_skel_data.motion_rot_local_euler.shape[0]
+
+            fbx_data.append(fbx_per_skel_data)
+            
+        return fbx_data
     
     def local_to_world(self, rot_local, pos_local, skeleton):
         
@@ -91,77 +148,23 @@ class Mocap_Tools:
 
     def euler_to_quat(self, rotations_euler, rot_sequence):
         
-        # rotations_euler shape: F x J x D (F: frame count, J: joint count, D: 3 (with angles in degrees))
-        # rot_sequence shape: D (D: 3 (integer indices))
+        rot_string = "".join([ "xyz"[i] for i in rot_sequence ])        
+        seq_length = rotations_euler.shape[0]
+        rotations_euler = np.reshape(rotations_euler, (-1, 3))
+        rotations_quat = Rotation.from_euler(rot_string, rotations_euler, degrees=True).as_quat(scalar_first=True)
         
-        frame_count = rotations_euler.shape[0]
-        joint_count = rotations_euler.shape[1]
-        
-        rotations_quat = []
-        
-        for fI in range(frame_count):
-            
-            joint_rotations_quat = []
-            
-            for jI in range(joint_count):
-        
-                # convert degrees to radians
-                euler_x = rotations_euler[fI, jI, 0]/180.0 * math.pi;
-                euler_y = rotations_euler[fI, jI, 1]/180.0 * math.pi;
-                euler_z = rotations_euler[fI, jI, 2]/180.0 * math.pi;
-
-                # convert euler rotation to quaternion
-                quat_identity = t3d.quaternions.qeye()
-
-                quat_x = t3d.quaternions.axangle2quat([1, 0, 0], euler_x)
-                quat_y = t3d.quaternions.axangle2quat([0, 1, 0], euler_y)
-                quat_z = t3d.quaternions.axangle2quat([0, 0, 1], euler_z)
-                
-                joint_rotation_quat = t3d.quaternions.qeye()
-                
-                rotations = [quat_x, quat_y, quat_z]
-                for rot_index in rot_sequence:
-                    joint_rotation_quat = t3d.quaternions.qmult(joint_rotation_quat, rotations[rot_index])
-                
-                joint_rotations_quat.append(joint_rotation_quat)
-                
-            joint_rotations_quat = np.stack(joint_rotations_quat, axis=0)
-            
-            rotations_quat.append(joint_rotations_quat)
-                
-        
-        rotations_quat = np.stack(rotations_quat, axis=0)
+        rotations_quat = np.reshape(rotations_quat, (seq_length, -1, 4))
         
         return rotations_quat
 
-
     def quat_to_euler(self, rotations_quat, rot_sequence):
         
-        # rotations_quat shape: F x J x D (F: frame count, J: joint count, D: 4 )
-        # rot_sequence shape: D (D: 3 (integer indices))
+        rot_string = "".join([ "xyz"[i] for i in rot_sequence ])
+        seq_length = rotations_quat.shape[0]
         
-        frame_count = rotations_quat.shape[0]
-        joint_count = rotations_quat.shape[1]
-        
-        rotations_euler = []
-        
-        for fI in range(frame_count):
-            
-            joint_rotations_euler = []
-            
-            for jI in range(joint_count):
-                
-                rotation_quat = rotations_quat[fI, jI]
-                #rotation_euler = np.array(t3d.euler.quat2euler(rotation_quat, axes="sxyz"))
-                rotation_euler = np.array(t3d.euler.quat2euler(rotation_quat, axes="syxz"))
-                rotation_euler  *= 180.0 / math.pi
-                rotation_euler = np.array((rotation_euler[1], rotation_euler[0], rotation_euler[2]))
-
-                joint_rotations_euler.append(rotation_euler)
-
-            rotations_euler.append(joint_rotations_euler)
-                
-        rotations_euler = np.stack(rotations_euler, axis=0)
+        rotations_quat = np.reshape(rotations_quat, (-1, 4))
+        rotations_euler = Rotation.from_quat(rotations_quat, scalar_first=True).as_euler(rot_string, degrees=True)
+        rotations_euler = np.reshape(rotations_euler, (seq_length, -1, 3))
                 
         return rotations_euler
     

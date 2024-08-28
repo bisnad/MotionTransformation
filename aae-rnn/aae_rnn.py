@@ -1,5 +1,6 @@
 """
 An adversarial autoencoder for motion capture data of a solo dancer
+This model works with motion capture data that stores joint rotations and recorded in BVH or FBX format
 """
 
 import torch
@@ -10,6 +11,8 @@ from collections import OrderedDict
 
 import os, sys, time, subprocess
 import numpy as np
+import json
+import pickle
 
 from common import utils
 from common import bvh_tools as bvh
@@ -31,20 +34,30 @@ print('Using {} device'.format(device))
 """
 Mocap Settings
 """
-
 # important: the skeleton needs to be identical in all mocap recordings
 
 """
 mocap_file_path = "D:/Data/mocap/Daniel/Zed/fbx/"
 mocap_files = ["daniel_zed_solo1.fbx"]
 mocap_valid_frame_ranges = [ [ 0, 9100 ] ]
+mocap_pos_scale = 1.0
 mocap_fps = 30
 """
 
+"""
 mocap_file_path = "D:/Data/mocap/motionbank/fbx/"
 mocap_files = ["zachary_music_improvisation.fbx"]
 mocap_valid_frame_ranges = [ [ 1000, 29000 ] ]
+mocap_pos_scale = 0.1
 mocap_fps = 30
+"""
+
+
+mocap_file_path = "D:/data/mocap/stocos/Solos/Canal_14-08-2023/fbx_50hz"
+mocap_files = ["Muriel_Embodied_Machine_variation.fbx"]
+mocap_valid_frame_ranges = [ [ 200, 6400 ] ]
+mocap_pos_scale = 1.0
+mocap_fps = 50
 
 
 """
@@ -161,6 +174,13 @@ for mocap_file in mocap_files:
         fbx_data = fbx_tools.load(mocap_file_path + "/" + mocap_file)
         mocap_data = mocap_tools.fbx_to_mocap(fbx_data)[0] # first skeleton only
     
+    mocap_data["skeleton"]["offsets"] *= mocap_pos_scale
+    mocap_data["motion"]["pos_local"] *= mocap_pos_scale
+    
+    # set x and z offset of root joint to zero
+    mocap_data["skeleton"]["offsets"][0, 0] = 0.0 
+    mocap_data["skeleton"]["offsets"][0, 2] = 0.0 
+
     mocap_data["motion"]["rot_local"] = mocap_tools.euler_to_quat(mocap_data["motion"]["rot_local_euler"], mocap_data["rot_sequence"])
 
     all_mocap_data.append(mocap_data)

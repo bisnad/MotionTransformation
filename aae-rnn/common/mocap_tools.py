@@ -91,7 +91,7 @@ class Mocap_Tools:
             fbx_per_skel_data.motion_pos_local = motion_motion["pos_local"]
             fbx_per_skel_data.motion_rot_local_euler = motion_motion["rot_local_euler"]
             fbx_per_skel_data.motion_frame_count = fbx_per_skel_data.motion_rot_local_euler.shape[0]
-        
+
             fbx_data.append(fbx_per_skel_data)
             
         return fbx_data
