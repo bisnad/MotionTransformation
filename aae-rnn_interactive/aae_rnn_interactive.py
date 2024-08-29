@@ -102,7 +102,10 @@ for mocap_file in mocap_files:
     mocap_data["skeleton"]["offsets"][0, 0] = 0.0 
     mocap_data["skeleton"]["offsets"][0, 2] = 0.0 
 
-    mocap_data["motion"]["rot_local"] = mocap_tools.euler_to_quat(mocap_data["motion"]["rot_local_euler"], mocap_data["rot_sequence"])
+    if mocap_file.endswith(".bvh") or mocap_file.endswith(".BVH"):
+        mocap_data["motion"]["rot_local"] = mocap_tools.euler_to_quat_bvh(mocap_data["motion"]["rot_local_euler"], mocap_data["rot_sequence"])
+    elif mocap_file.endswith(".fbx") or mocap_file.endswith(".FBX"):
+        mocap_data["motion"]["rot_local"] = mocap_tools.euler_to_quat(mocap_data["motion"]["rot_local_euler"], mocap_data["rot_sequence"])
 
     all_mocap_data.append(mocap_data)
 

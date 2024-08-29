@@ -168,7 +168,14 @@ for mocap_file in mocap_files:
     mocap_data["skeleton"]["offsets"] *= mocap_pos_scale
     mocap_data["motion"]["pos_local"] *= mocap_pos_scale
     
-    mocap_data["motion"]["rot_local"] = mocap_tools.euler_to_quat(mocap_data["motion"]["rot_local_euler"], mocap_data["rot_sequence"])
+    # set x and z offset of root joint to zero
+    mocap_data["skeleton"]["offsets"][0, 0] = 0.0 
+    mocap_data["skeleton"]["offsets"][0, 2] = 0.0 
+    
+    if mocap_file.endswith(".bvh") or mocap_file.endswith(".BVH"):
+        mocap_data["motion"]["rot_local"] = mocap_tools.euler_to_quat_bvh(mocap_data["motion"]["rot_local_euler"], mocap_data["rot_sequence"])
+    elif mocap_file.endswith(".fbx") or mocap_file.endswith(".FBX"):
+        mocap_data["motion"]["rot_local"] = mocap_tools.euler_to_quat(mocap_data["motion"]["rot_local_euler"], mocap_data["rot_sequence"])
 
     all_mocap_data.append(mocap_data)
 
@@ -747,7 +754,7 @@ def export_sequence_bvh(pose_sequence, file_name):
     pred_dataset["motion"] = {}
     pred_dataset["motion"]["pos_local"] = np.repeat(np.expand_dims(pred_dataset["skeleton"]["offsets"], axis=0), pose_count, axis=0)
     pred_dataset["motion"]["rot_local"] = pose_sequence
-    pred_dataset["motion"]["rot_local_euler"] = mocap_tools.quat_to_euler(pred_dataset["motion"]["rot_local"], pred_dataset["rot_sequence"])
+    pred_dataset["motion"]["rot_local_euler"] = mocap_tools.quat_to_euler_bvh(pred_dataset["motion"]["rot_local"], pred_dataset["rot_sequence"])
 
     pred_bvh = mocap_tools.mocap_to_bvh(pred_dataset)
     
