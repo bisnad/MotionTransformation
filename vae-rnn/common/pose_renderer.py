@@ -145,8 +145,14 @@ class PoseRenderer:
             # cleanup previous drawing
             if scatter_data != None:
                 scatter_data.remove()
+                
+            for line in list(ax.lines):
+                line.remove()
+
+            """
             if len(ax.lines) > 0:
                 ax.lines.clear()
+            """
             
             point_data = np.array([poses[pI, :,0], poses[pI, :,1], poses[pI,:,2]])
             lines_data = np.array([[poses[pI, edge[0],:], poses[pI, edge[1],:]] for edge in self.edge_data])
