@@ -400,7 +400,9 @@ print(decoder)
 if load_weights and decoder_weights_file:
     decoder.load_state_dict(torch.load(decoder_weights_file, map_location=device))
     
-# Training
+"""
+Training
+"""
 
 def calc_kld_scales():
     

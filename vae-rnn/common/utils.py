@@ -31,8 +31,8 @@ def save_loss_as_image(loss_history, image_file_name):
     plt.xlabel('Epochs')
     plt.ylabel('Loss')
     plt.legend()
-    plt.show()
     plt.savefig(image_file_name)
+    plt.show()
 
 def get_skeleton_edge_list(skeleton):
     skel_edge_list = []
