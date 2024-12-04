@@ -255,7 +255,5 @@ class MotionSynthesis():
 
         blend_seq = self.gen_seq[:self.seq_window_overlap] * (1.0 - blend_slope) + self.gen_seq_window[:self.seq_window_overlap] * blend_slope
 
-        self.gen_seq[:self.seq_window_overlap]
-
         self.gen_seq[:self.seq_window_overlap] = blend_seq
         self.gen_seq[self.seq_window_overlap:] = torch.clone(self.gen_seq_window[self.seq_window_overlap:])

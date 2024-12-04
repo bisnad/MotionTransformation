@@ -36,27 +36,63 @@ Mocap Settings
 """
 
 """
-mocap_config_file = "configs/Halpe26_config.json" 
-mocap_file_path = "mocap/"
-mocap_files = ["Mocap_class_0_time_1723812067.0081663.pkl", "Mocap_class_0_time_1723812067.0081663.pkl"]
-mocap_valid_frame_ranges = [ [ [ 0, 9390 ] ] ]
-mocap_sensor_ids = ["/mocap/0/joint/pos2d_world", "/mocap/0/joint/visibility"]
-mocap_root_joint_name = "Hip"
-mocap_fps = 30
-mocap_joint_dim = 2
-"""
-
+# Example: MMPose 3D-Pose Estimation Recording
 mocap_config_file = "configs/Human36M_config.json" 
 mocap_file_path = "mocap/"
-mocap_files = ["Mocap_class_0_time_1724065746.5842216.pkl", "Mocap_class_0_time_1724065746.5842216.pkl"]
-mocap_valid_frame_ranges = [ [ [ 0, 9390 ] ] ]
+mocap_files = ["Mocap_class_0_time_1724065746.5842216.pkl"]
+mocap_valid_frame_ranges = [ [ 0, 9390 ] ]
 mocap_sensor_ids = ["/mocap/0/joint/pos3d_world", "/mocap/0/joint/visibility"]
 mocap_root_joint_name = "Bottom_Torso"
 mocap_fps = 30
 mocap_joint_dim = 3
+"""
 
-mocap_seq_window_length = 64
-mocap_seq_window_overlap = 48
+# Example: MMPose 2D-Pose Estimation Recording
+mocap_config_file = "configs/Halpe26_config.json" 
+mocap_file_path = "mocap/"
+mocap_files = ["Mocap_class_0_time_1723812067.0081663.pkl"]
+mocap_valid_frame_ranges = [ [ 0, 9390 ] ]
+mocap_sensor_ids = ["/mocap/0/joint/pos2d_world", "/mocap/0/joint/visibility"]
+mocap_root_joint_name = "Hip"
+mocap_fps = 30
+mocap_joint_dim = 2
+
+"""
+Model Settings
+"""
+
+latent_dim = 32
+sequence_length = 64
+ae_rnn_layer_count = 2
+ae_rnn_layer_size = 512
+ae_dense_layer_sizes = [ 512 ]
+
+"""
+Training Settings
+"""
+
+"""
+# Example: MMPose 3D-Pose Estimation Recording
+encoder_weights_file = "../vae-rnn/results_MMPose3D_HannahMartin/weights/encoder_weights_epoch_600"
+decoder_weights_file = "../vae-rnn/results_MMPose3D_HannahMartin/weights/decoder_weights_epoch_600"
+"""
+
+# Example: MMPose 2D-Pose Estimation Recording
+encoder_weights_file = "../vae-rnn/results_MMPose2D_HannahMartin/weights/encoder_weights_epoch_600"
+decoder_weights_file = "../vae-rnn/results_MMPose2D_HannahMartin/weights/decoder_weights_epoch_600"
+
+
+"""
+OSC Settings
+"""
+
+osc_send_ip = "127.0.0.1"
+osc_send_port = 9004
+
+osc_receive_ip = "0.0.0.0"
+osc_receive_port = 9002
+
+
 
 
 """
@@ -142,15 +178,14 @@ for motion_data in all_motion_data:
 Load Model
 """
 
-motion_model.config["seq_length"] = mocap_seq_window_length
+motion_model.config["seq_length"] = sequence_length
 motion_model.config["data_dim"] = pose_dim
-motion_model.config["latent_dim"] = 32
-motion_model.config["rnn_layer_count"] = 2
-motion_model.config["rnn_layer_size"] = 512
-motion_model.config["dense_layer_sizes"] = [512]
+motion_model.config["latent_dim"] = latent_dim
+motion_model.config["rnn_layer_count"] = ae_rnn_layer_count
+motion_model.config["rnn_layer_size"] = ae_rnn_layer_size
+motion_model.config["dense_layer_sizes"] = ae_dense_layer_sizes
 motion_model.config["device"] = device
-#motion_model.config["weights_path"] = ["../vae-rnn/results_MMPose2D_HannahMartin/weights/encoder_weights_epoch_600", "../vae-rnn/results_MMPose2D_HannahMartin/weights/decoder_weights_epoch_600"]
-motion_model.config["weights_path"] = ["../vae-rnn/results_MMPose3D_HannahMartin/weights/encoder_weights_epoch_600", "../vae-rnn/results_MMPose3D_HannahMartin/weights/decoder_weights_epoch_600"]
+motion_model.config["weights_path"] = [encoder_weights_file, decoder_weights_file]
 
 
 encoder, decoder = motion_model.createModels(motion_model.config) 
@@ -159,15 +194,17 @@ encoder, decoder = motion_model.createModels(motion_model.config)
 Setup Motion Synthesis
 """
 
+sequence_overlap = sequence_length // 4 * 3
+
 motion_synthesis.config["skeleton"] = skeleton_data
 motion_synthesis.config["model_encoder"] = encoder
 motion_synthesis.config["model_decoder"] = decoder
 motion_synthesis.config["device"] = device
-motion_synthesis.config["seq_window_length"] = mocap_seq_window_length
-motion_synthesis.config["seq_window_overlap"] = mocap_seq_window_overlap
+motion_synthesis.config["seq_window_length"] = sequence_length
+motion_synthesis.config["seq_window_overlap"] = sequence_overlap
 motion_synthesis.config["orig_sequences"] = all_pose_sequences
 motion_synthesis.config["orig_seq1_index"] = 0
-motion_synthesis.config["orig_seq2_index"] = 1
+motion_synthesis.config["orig_seq2_index"] = 0
 
 synthesis = motion_synthesis.MotionSynthesis(motion_synthesis.config)
 
@@ -175,8 +212,8 @@ synthesis = motion_synthesis.MotionSynthesis(motion_synthesis.config)
 OSC Sender
 """
 
-motion_sender.config["ip"] = "127.0.0.1"
-motion_sender.config["port"] = 9004
+motion_sender.config["ip"] = osc_send_ip
+motion_sender.config["port"] = osc_send_port
 
 osc_sender = motion_sender.OscSender(motion_sender.config)
 
@@ -209,9 +246,9 @@ OSC Control
 motion_control.config["motion_seq"] = pose_sequence
 motion_control.config["synthesis"] = synthesis
 motion_control.config["gui"] = gui
-motion_control.config["latent_dim"] = 32
-motion_control.config["ip"] = "0.0.0.0"
-motion_control.config["port"] = 9002
+motion_control.config["latent_dim"] = latent_dim
+motion_control.config["ip"] = osc_receive_ip
+motion_control.config["port"] = osc_receive_port
 
 osc_control = motion_control.MotionControl(motion_control.config)
 

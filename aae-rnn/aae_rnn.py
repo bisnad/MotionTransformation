@@ -37,7 +37,8 @@ Mocap Settings
 # important: the skeleton needs to be identical in all mocap recordings
 
 """
-mocap_file_path = "D:/Data/mocap/Daniel/Zed/fbx/"
+# Example: ZED Mocap Recording
+mocap_file_path = "../../../Data/Mocap/Zed/Daniel/Solos/fbx_30hz"
 mocap_files = ["daniel_zed_solo1.fbx"]
 mocap_valid_frame_ranges = [ [ 0, 9100 ] ]
 mocap_pos_scale = 1.0
@@ -45,20 +46,20 @@ mocap_fps = 30
 """
 
 """
-mocap_file_path = "D:/Data/mocap/motionbank/fbx/"
+# Example: Captury Mocap Recording
+mocap_file_path = "../../../Data/Mocap/Captury/MotionBank/Solos/fbx_50hz"
 mocap_files = ["zachary_music_improvisation.fbx"]
-mocap_valid_frame_ranges = [ [ 1000, 29000 ] ]
+mocap_valid_frame_ranges = [ [ [ 1400, 29000 ] ] ]
 mocap_pos_scale = 0.1
-mocap_fps = 30
+mocap_fps = 50
 """
 
-
-mocap_file_path = "D:/data/mocap/stocos/Solos/Canal_14-08-2023/fbx_50hz"
+# Example: XSens Mocap Recording
+mocap_file_path = "../../../Data/Mocap/XSens/Stocos/Solos/fbx_50hz"
 mocap_files = ["Muriel_Embodied_Machine_variation.fbx"]
 mocap_valid_frame_ranges = [ [ 200, 6400 ] ]
 mocap_pos_scale = 1.0
 mocap_fps = 50
-
 
 """
 Model Settings
@@ -77,9 +78,9 @@ save_weights = True
 
 # load model weights
 load_weights = False
-disc_prior_weights_file = "results_xsens_64/weights/disc_prior_weights_epoch_600"
-encoder_weights_file = "results_xsens_64/weights/encoder_weights_epoch_600"
-decoder_weights_file = "results_xsens_64/weights/decoder_weights_epoch_600"
+disc_prior_weights_file = "results/weights/disc_prior_weights_epoch_600"
+encoder_weights_file = "results/weights/encoder_weights_epoch_600"
+decoder_weights_file = "results/weights/decoder_weights_epoch_600"
 
 """
 Training Settings

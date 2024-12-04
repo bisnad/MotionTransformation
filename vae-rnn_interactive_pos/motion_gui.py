@@ -19,7 +19,7 @@ config = {"synthesis": None,
           "update_interval": 0.02,
           "view_min": np.array([-100, -100, -100], dtype=np.float32),
           "view_max": np.array([100, 100, 100], dtype=np.float32),
-          "view_ele": 90,
+          "view_ele": -90,
           "view_azi": -90,
           "view_dist": 250,
           "view_line_width": 2.0

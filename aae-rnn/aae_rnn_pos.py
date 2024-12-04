@@ -34,25 +34,27 @@ Mocap Settings
 """
 # important: the skeleton needs to be identical in all mocap recordings
 
-"""
+# Example: MMPose 3D-Pose Estimation Recording
 mocap_config_file = "configs/Human36M_config.json" 
-mocap_file_path = "mocap/"
-mocap_files = ["Mocap_class_0_time_1724065746.5842216.pkl"]
+mocap_file_path = "../../../Data/Mocap/Pose3D/HannahMartin/Solos/pkl"
+mocap_files = ["HannahMartin_Pos3D_Performance.pkl"]
 mocap_valid_frame_ranges = [ [ 0, 9390 ] ]
 mocap_sensor_ids = ["/mocap/0/joint/pos3d_world", "/mocap/0/joint/visibility"]
 mocap_root_joint_name = "Bottom_Torso"
 mocap_fps = 30
 mocap_joint_dim = 3
-"""
 
+"""
+# Example: MMPose 2D-Pose Estimation Recording
 mocap_config_file = "configs/Halpe26_config.json" 
-mocap_file_path = "mocap/"
-mocap_files = ["Mocap_class_0_time_1723812067.0081663.pkl"]
+mocap_file_path = "../../../Data/Mocap/Pose2D/HannahMartin/Solos/pkl"
+mocap_files = ["HannahMartin_Pos2D_Performance.pkl"]
 mocap_valid_frame_ranges = [ [ 0, 9390 ] ]
 mocap_sensor_ids = ["/mocap/0/joint/pos2d_world", "/mocap/0/joint/visibility"]
 mocap_root_joint_name = "Hip"
 mocap_fps = 30
 mocap_joint_dim = 2
+"""
 
 """
 Model Settings
@@ -71,9 +73,9 @@ save_weights = True
 
 # load model weights
 load_weights = False
-disc_prior_weights_file = "results_xsens_64/weights/disc_prior_weights_epoch_600"
-encoder_weights_file = "results_xsens_64/weights/encoder_weights_epoch_600"
-decoder_weights_file = "results_xsens_64/weights/decoder_weights_epoch_600"
+disc_prior_weights_file = "results/weights/disc_prior_weights_epoch_600"
+encoder_weights_file = "results/weights/encoder_weights_epoch_600"
+decoder_weights_file = "results/weights/decoder_weights_epoch_600"
 
 """
 Training Settings

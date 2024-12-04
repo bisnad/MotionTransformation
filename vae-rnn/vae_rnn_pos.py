@@ -37,6 +37,7 @@ Mocap Settings
 # important: the skeleton needs to be identical in all mocap recordings
 
 """
+# Example: MMPose 3D-Pose Estimation Recording
 mocap_config_file = "configs/Human36M_config.json" 
 mocap_file_path = "mocap/"
 mocap_files = ["Mocap_class_0_time_1724065746.5842216.pkl"]
@@ -47,6 +48,7 @@ mocap_fps = 30
 mocap_joint_dim = 3
 """
 
+# Example: MMPose 2D-Pose Estimation Recording
 mocap_config_file = "configs/Halpe26_config.json" 
 mocap_file_path = "mocap/"
 mocap_files = ["Mocap_class_0_time_1723812067.0081663.pkl"]
