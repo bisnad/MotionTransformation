@@ -167,5 +167,7 @@ def createModels(config):
         else:
             decoder.load_state_dict(torch.load(config["weights_path"][1], map_location=torch.device('cpu')))
 
+    encoder.eval()
+    decoder.eval()
         
     return encoder, decoder

@@ -35,18 +35,20 @@ Mocap Settings
 
 # important: the skeleton needs to be identical in all mocap recordings
 
+"""
 # Example: ZED Mocap Recording
 mocap_file_path = "../../../Data/Mocap/Zed/Daniel/Solos/fbx_30hz"
 mocap_files = ["daniel_zed_solo1.fbx"]
 mocap_valid_frame_ranges = [ [ 0, 9100 ] ]
 mocap_pos_scale = 1.0
 mocap_fps = 30
+"""
 
 """
 # Example: Captury Mocap Recording
 mocap_file_path = "../../../Data/Mocap/Captury/MotionBank/Solos/fbx_50hz"
 mocap_files = ["zachary_music_improvisation.fbx"]
-mocap_valid_frame_ranges = [ [ [ 1400, 29000 ] ] ]
+mocap_valid_frame_ranges = [ [ 1400, 29000 ] ]
 mocap_pos_scale = 0.1
 mocap_fps = 50
 """
@@ -59,6 +61,13 @@ mocap_valid_frame_ranges = [ [ 200, 6400 ] ]
 mocap_pos_scale = 1.0
 mocap_fps = 50
 """
+
+# Example: Qualisys Mocap Recording
+mocap_file_path = "../../../Data/Mocap/Qualisys/Stocos/Solos/fbx_50hz"
+mocap_files = ["polytopia_fullbody_take2.fbx"]
+mocap_valid_frame_ranges = [ [ 570, 9670] ]
+mocap_pos_scale = 1.0
+mocap_fps = 50
 
 """
 Model Settings
@@ -143,8 +152,79 @@ joint_loss_weights = [
     ]
 """
 
+# qualisys specific joint loss weights
+# todo: this information should be stored in config files
+joint_loss_weights = [
+1.0,  # MUR:Hips
+1.0,  # MUR:Spine
+1.0,  # MUR:Spine1
+1.0,  # MUR:Spine2
+1.0,  # MUR:Neck
+1.0,  # MUR:Head
+1.0,  # MUR:LeftShoulder
+1.0,  # MUR:LeftArm
+1.0,  # MUR:LeftForeArm
+1.0,  # MUR:LeftForeArmRoll
+1.0,  # MUR:LeftHand
+0.05, # MUR:LeftInHandThumb
+0.05, # MUR:LeftHandThumb1
+0.05, # MUR:LeftHandThumb2
+0.05, # MUR:LeftHandThumb3
+0.05, # MUR:LeftInHandIndex
+0.05, # MUR:LeftHandIndex1
+0.05, # MUR:LeftHandIndex2
+0.05, # MUR:LeftHandIndex3
+0.05, # MUR:LeftInHandMiddle
+0.05, # MUR:LeftHandMiddle1
+0.05, # MUR:LeftHandMiddle2
+0.05, # MUR:LeftHandMiddle3
+0.05, # MUR:LeftInHandRing
+0.05, # MUR:LeftHandRing1
+0.05, # MUR:LeftHandRing2
+0.05, # MUR:LeftHandRing3
+0.05, # MUR:LeftInHandPinky
+0.05, # MUR:LeftHandPinky1
+0.05, # MUR:LeftHandPinky2
+0.05, # MUR:LeftHandPinky3
+1.0,  # MUR:RightShoulder
+1.0,  # MUR:RightArm
+1.0,  # MUR:RightForeArm
+1.0,  # MUR:RightForeArmRoll
+1.0,  # MUR:RightHand
+0.05, # MUR:RightInHandThumb
+0.05, # MUR:RightHandThumb1
+0.05, # MUR:RightHandThumb2
+0.05, # MUR:RightHandThumb3
+0.05, # MUR:RightInHandIndex
+0.05, # MUR:RightHandIndex1
+0.05, # MUR:RightHandIndex2
+0.05, # MUR:RightHandIndex3
+0.05, # MUR:RightInHandMiddle
+0.05, # MUR:RightHandMiddle1
+0.05, # MUR:RightHandMiddle2
+0.05, # MUR:RightHandMiddle3
+0.05, # MUR:RightInHandRing
+0.05, # MUR:RightHandRing1
+0.05, # MUR:RightHandRing2
+0.05, # MUR:RightHandRing3
+0.05, # MUR:RightInHandPinky
+0.05, # MUR:RightHandPinky1
+0.05, # MUR:RightHandPinky2
+0.05, # MUR:RightHandPinky3
+1.0,  # MUR:LeftUpLeg
+1.0,  # MUR:LeftLeg
+1.0,  # MUR:LeftFoot
+1.0,  # MUR:LeftToeBase
+1.0,  # MUR:RightUpLeg
+1.0,  # MUR:RightLeg
+1.0,  # MUR:RightFoot
+1.0  # MUR:RightToeBase
+    ]
+
+"""
 # for skeletons with main body joints only
 joint_loss_weights = [1.0]
+"""
 
 """
 Visualization Settings
