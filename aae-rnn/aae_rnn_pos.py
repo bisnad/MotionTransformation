@@ -34,6 +34,29 @@ Mocap Settings
 """
 # important: the skeleton needs to be identical in all mocap recordings
 
+# Example: MMPose 2D-Pose Estimation Recording
+mocap_config_file = "data/configs/COCO_config.json" 
+mocap_file_path = "../../../Data/Mocap/Pose2D/Stocos/Solos"
+mocap_files = ["Stocos_Pose2D_BlumenBaile.pkl"]
+mocap_valid_frame_ranges = [ [ 0, 5000 ] ]
+mocap_sensor_ids = ["/mocap/0/joint/pos_world"]
+mocap_root_joint_name = "Left_Hip"
+mocap_fps = 30
+mocap_joint_dim = 2
+
+"""
+# Example: MMPose 3D-Pose Estimation Recording
+mocap_config_file = "data/configs/Human36M_config.json" 
+mocap_file_path = "../../../Data/Mocap/Pose3D/Stocos/Solos"
+mocap_files = ["Stocos_Pose3D_BlumenBaile.pkl"]
+mocap_valid_frame_ranges = [ [ 0, 5000 ] ]
+mocap_sensor_ids = ["/mocap/0/joint/pos_world"]
+mocap_root_joint_name = "Bottom_Torso"
+mocap_fps = 30
+mocap_joint_dim = 3
+"""
+
+"""
 # Example: MMPose 3D-Pose Estimation Recording
 mocap_config_file = "configs/Human36M_config.json" 
 mocap_file_path = "../../../Data/Mocap/Pose3D/HannahMartin/Solos/pkl"
@@ -43,6 +66,7 @@ mocap_sensor_ids = ["/mocap/0/joint/pos3d_world", "/mocap/0/joint/visibility"]
 mocap_root_joint_name = "Bottom_Torso"
 mocap_fps = 30
 mocap_joint_dim = 3
+"""
 
 """
 # Example: MMPose 2D-Pose Estimation Recording

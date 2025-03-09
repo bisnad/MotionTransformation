@@ -11,6 +11,7 @@ from collections import OrderedDict
 
 import os, sys, time, subprocess
 import numpy as np
+import json
 
 from common import utils
 from common import bvh_tools as bvh
@@ -42,6 +43,7 @@ mocap_files = ["daniel_zed_solo1.fbx"]
 mocap_valid_frame_ranges = [ [ 0, 9100 ] ]
 mocap_pos_scale = 1.0
 mocap_fps = 30
+mocap_loss_weights_file = "configs/zed_body34_joint_loss_weights.json"
 """
 
 """
@@ -51,6 +53,7 @@ mocap_files = ["zachary_music_improvisation.fbx"]
 mocap_valid_frame_ranges = [ [ 1400, 29000 ] ]
 mocap_pos_scale = 0.1
 mocap_fps = 50
+mocap_loss_weights_file = None
 """
 
 """
@@ -60,6 +63,7 @@ mocap_files = ["Muriel_Embodied_Machine_variation.fbx"]
 mocap_valid_frame_ranges = [ [ 200, 6400 ] ]
 mocap_pos_scale = 1.0
 mocap_fps = 50
+mocap_loss_weights_file = None
 """
 
 # Example: Qualisys Mocap Recording
@@ -68,6 +72,7 @@ mocap_files = ["polytopia_fullbody_take2.fbx"]
 mocap_valid_frame_ranges = [ [ 570, 9670] ]
 mocap_pos_scale = 1.0
 mocap_fps = 50
+mocap_loss_weights_file = "configs/qualisys_with_hands_joint_loss_weights.json"
 
 """
 Model Settings
@@ -110,121 +115,6 @@ max_kld_scale = 0.1
 epochs = 600
 model_save_interval = 50
 save_history = True
-
-"""
-# zed body34 specific joint loss weights
-# todo: this information should be stored in config files
-joint_loss_weights = [
-    1.0, # PELVIS
-    1.0, # NAVAL SPINE
-    1.0, # CHEST SPINE
-    1.0, # RIGHT CLAVICLE
-    1.0, # RIGHT SHOULDER
-    1.0, # RIGHT ELBOW
-    1.0, # RIGHT WRIST
-    1.0, # RIGHT HAND
-    0.1, # RIGHT HANDTIP
-    0.1, # RIGHT THUMB
-    1.0, # NECK
-    1.0, # HEAD
-    0.1, # NOSE
-    0.1, # LEFT EYE
-    0.1, # LEFT EAR
-    0.1, # RIGHT EYE
-    0.1, # RIGHT EAR
-    1.0, # LEFT CLAVICLE
-    1.0, # LEFT SHOULDER
-    1.0, # LEFT ELBOW
-    1.0, # LEFT WRIST
-    1.0, # LEFT HAND
-    0.1, # LEFT HANDTIP
-    0.1, # LEFT THUMB
-    1.0, # LEFT HIP
-    1.0, # LEFT KNEE
-    1.0, # LEFT ANKLE
-    1.0, # LEFT FOOT
-    1.0, # LEFT HEEL
-    1.0, # RIGHT HIP
-    1.0, # RIGHT KNEE
-    1.0, # RIGHT ANKLE
-    1.0, # RIGHT FOOT
-    1.0 # RIGHT HEEL
-    ]
-"""
-
-# qualisys specific joint loss weights
-# todo: this information should be stored in config files
-joint_loss_weights = [
-1.0,  # MUR:Hips
-1.0,  # MUR:Spine
-1.0,  # MUR:Spine1
-1.0,  # MUR:Spine2
-1.0,  # MUR:Neck
-1.0,  # MUR:Head
-1.0,  # MUR:LeftShoulder
-1.0,  # MUR:LeftArm
-1.0,  # MUR:LeftForeArm
-1.0,  # MUR:LeftForeArmRoll
-1.0,  # MUR:LeftHand
-0.05, # MUR:LeftInHandThumb
-0.05, # MUR:LeftHandThumb1
-0.05, # MUR:LeftHandThumb2
-0.05, # MUR:LeftHandThumb3
-0.05, # MUR:LeftInHandIndex
-0.05, # MUR:LeftHandIndex1
-0.05, # MUR:LeftHandIndex2
-0.05, # MUR:LeftHandIndex3
-0.05, # MUR:LeftInHandMiddle
-0.05, # MUR:LeftHandMiddle1
-0.05, # MUR:LeftHandMiddle2
-0.05, # MUR:LeftHandMiddle3
-0.05, # MUR:LeftInHandRing
-0.05, # MUR:LeftHandRing1
-0.05, # MUR:LeftHandRing2
-0.05, # MUR:LeftHandRing3
-0.05, # MUR:LeftInHandPinky
-0.05, # MUR:LeftHandPinky1
-0.05, # MUR:LeftHandPinky2
-0.05, # MUR:LeftHandPinky3
-1.0,  # MUR:RightShoulder
-1.0,  # MUR:RightArm
-1.0,  # MUR:RightForeArm
-1.0,  # MUR:RightForeArmRoll
-1.0,  # MUR:RightHand
-0.05, # MUR:RightInHandThumb
-0.05, # MUR:RightHandThumb1
-0.05, # MUR:RightHandThumb2
-0.05, # MUR:RightHandThumb3
-0.05, # MUR:RightInHandIndex
-0.05, # MUR:RightHandIndex1
-0.05, # MUR:RightHandIndex2
-0.05, # MUR:RightHandIndex3
-0.05, # MUR:RightInHandMiddle
-0.05, # MUR:RightHandMiddle1
-0.05, # MUR:RightHandMiddle2
-0.05, # MUR:RightHandMiddle3
-0.05, # MUR:RightInHandRing
-0.05, # MUR:RightHandRing1
-0.05, # MUR:RightHandRing2
-0.05, # MUR:RightHandRing3
-0.05, # MUR:RightInHandPinky
-0.05, # MUR:RightHandPinky1
-0.05, # MUR:RightHandPinky2
-0.05, # MUR:RightHandPinky3
-1.0,  # MUR:LeftUpLeg
-1.0,  # MUR:LeftLeg
-1.0,  # MUR:LeftFoot
-1.0,  # MUR:LeftToeBase
-1.0,  # MUR:RightUpLeg
-1.0,  # MUR:RightLeg
-1.0,  # MUR:RightFoot
-1.0  # MUR:RightToeBase
-    ]
-
-"""
-# for skeletons with main body joints only
-joint_loss_weights = [1.0]
-"""
 
 """
 Visualization Settings
@@ -292,6 +182,16 @@ def get_edge_list(children):
     return edge_list
 
 edge_list = get_edge_list(children)
+
+# set joint loss weigths 
+
+if mocap_loss_weights_file is not None:
+    with open(mocap_loss_weights_file) as f:
+        joint_loss_weights = json.load(f)
+        joint_loss_weights = joint_loss_weights["joint_loss_weights"]
+else:
+    joint_loss_weights = [1.0]
+    joint_loss_weights *= joint_count
 
 """
 Create Dataset
@@ -528,10 +428,6 @@ mse_loss = nn.MSELoss()
 cross_entropy = nn.BCELoss()
 
 # joint loss weights
-
-if len(joint_loss_weights) == 1:
-    joint_loss_weights *= joint_count
-
 joint_loss_weights = torch.tensor(joint_loss_weights, dtype=torch.float32)
 joint_loss_weights = joint_loss_weights.reshape(1, 1, -1).to(device)
 
