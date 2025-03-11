@@ -439,7 +439,7 @@ joint_loss_weights = joint_loss_weights.reshape(1, 1, -1).to(device)
 # KL Divergence
 
 def variational_loss(mu, std):
-    #returns the varialtional loss from arguments mean and standard deviation std
+    #returns the variational loss from arguments mean and standard deviation std
     #see also: see Appendix B from VAE paper:
     # Kingma and Welling. Auto-Encoding Variational Bayes. ICLR, 2014
     #https://arxiv.org/abs/1312.6114
@@ -447,7 +447,7 @@ def variational_loss(mu, std):
     return vl
    
 def variational_loss2(mu, std):
-    #returns the varialtional loss from arguments mean and standard deviation std
+    #returns the variational loss from arguments mean and standard deviation std
     #alternative: mean squared distance from ideal mu=0 and std=1:
     vl=torch.mean(mu.pow(2)+(1-std).pow(2))
     return vl
