@@ -77,8 +77,6 @@ ae_rnn_layer_size = 512
 ae_dense_layer_sizes = [ 512 ]
 prior_crit_dense_layer_sizes = [ 512, 512 ]
 
-save_models = False
-save_tscript = False
 save_weights = True
 
 # load model weights

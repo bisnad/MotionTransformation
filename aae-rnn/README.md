@@ -1,4 +1,4 @@
-## AI-Toolbox - Motion Continuation - RNN
+## AI-Toolbox - Motion Continuation - AAE RNN
 
 ![MocapPlayer](./data/media/aae-rnn_screenshot.JPG)
 
@@ -51,7 +51,7 @@ python aae_rnn_pos.py
 
 ##### AAE RNN Motion Data Import
 
-This tool imports motion data from one or several motion files that are stored either in FBX or BVH format. These motion files are then used to create the training set. By default, the tool loads the motion file `Muriel_Embodied_Machine_variation.fbx` in the `data/mocap` folder. To read different motion files, the the following source code in the file aae_rnn.py has to be modified:
+This tool imports motion data from one or several motion files that are stored either in FBX or BVH format. These motion files are then used to create the training set. By default, the tool loads the motion file `Muriel_Embodied_Machine_variation.fbx` in the `data/mocap` folder. To read different motion files, the the following source code in the file `aae_rnn.py` has to be modified:
 
 ```
 mocap_file_path = "data/mocap"

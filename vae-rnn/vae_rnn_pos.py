@@ -32,31 +32,40 @@ print('Using {} device'.format(device))
 
 """
 Mocap Settings
+
+important: the skeleton needs to be identical in all mocap recordings
 """
 
-# important: the skeleton needs to be identical in all mocap recordings
+# Example: MMPose 2D-Pose Estimation Recording
+mocap_config_file = "data/configs/COCO_config.json" 
+mocap_file_path = "data/mocap"
+mocap_files = ["Stocos_Pose2D_BlumenBaile.pkl"]
+mocap_sensor_ids = ["/mocap/0/joint/pos_world", "/mocap/0/joint/visibility"]
+mocap_root_joint_name = "Left_Hip"
+mocap_fps = 30
+mocap_joint_dim = 2
 
 """
 # Example: MMPose 2D-Pose Estimation Recording
 mocap_config_file = "data/configs/COCO_config.json" 
 mocap_file_path = "../../../Data/Mocap/Pose2D/Stocos/Solos"
 mocap_files = ["Stocos_Pose2D_BlumenBaile.pkl"]
-mocap_valid_frame_ranges = [ [ 0, 5000 ] ]
 mocap_sensor_ids = ["/mocap/0/joint/pos_world", "/mocap/0/joint/visibility"]
 mocap_root_joint_name = "Left_Hip"
 mocap_fps = 30
 mocap_joint_dim = 2
 """
 
+"""
 # Example: MMPose 3D-Pose Estimation Recording
 mocap_config_file = "data/configs/Human36M_config.json" 
 mocap_file_path = "../../../Data/Mocap/Pose3D/Stocos/Solos"
 mocap_files = ["Stocos_Pose3D_BlumenBaile.pkl"]
-mocap_valid_frame_ranges = [ [ 0, 5000 ] ]
 mocap_sensor_ids = ["/mocap/0/joint/pos_world", "/mocap/0/joint/scores"]
 mocap_root_joint_name = "Bottom_Torso"
 mocap_fps = 30
 mocap_joint_dim = 3
+"""
 
 """
 Model Settings
@@ -68,8 +77,6 @@ ae_rnn_layer_count = 2
 ae_rnn_layer_size = 512
 ae_dense_layer_sizes = [ 512 ]
 
-save_models = False
-save_tscript = False
 save_weights = True
 
 # load model weights
@@ -83,7 +90,6 @@ Training Settings
 
 sequence_offset = 2 # when creating sequence excerpts, each excerpt is offset from the previous one by this value
 batch_size = 16
-train_percentage = 0.8 # train / test split
 test_percentage  = 0.2
 ae_learning_rate = 1e-4
 ae_pos_loss_scale = 1.0
