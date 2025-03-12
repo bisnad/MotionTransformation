@@ -34,33 +34,62 @@ device = 'cuda' if torch.cuda.is_available() else 'cpu'
 print('Using {} device'.format(device))
 
 """
-Mocap Settings
+Mocap and Training Settings
 """
+
+# Example: XSens Mocap Recording
+mocap_file_path = "data/mocap"
+mocap_files = ["Muriel_Embodied_Machine_variation.fbx"]
+mocap_valid_frame_ranges = [ [ 40, 7800 ] ]
+mocap_pos_scale = 1.0
+mocap_fps = 50
+
+encoder_weights_file = "data/results/weights/encoder_weights_epoch_200"
+decoder_weights_file = "data/results/weights/decoder_weights_epoch_200"
 
 """
 # Example: ZED Mocap Recording
 mocap_file_path = "../../../Data/Mocap/Zed/Daniel/Solos/fbx_30hz"
 mocap_files = ["daniel_zed_solo1.fbx"]
-mocap_valid_frame_ranges = [ [ 0, 9100 ] ]
 mocap_pos_scale = 1.0
 mocap_fps = 30
+
+encoder_weights_file = "../../../Data/Models/MotionTransformation/aae-rnn/results_Zed_Daniel_Solo1/weights/encoder_weights_epoch_600"
+decoder_weights_file = "../../../Data/Models/MotionTransformation/aae-rnn/results_Zed_Daniel_Solo1/weights/decoder_weights_epoch_600"
 """
 
 """
 # Example: Captury Mocap Recording
 mocap_file_path = "../../../Data/Mocap/Captury/MotionBank/Solos/fbx_50hz"
 mocap_files = ["zachary_music_improvisation.fbx"]
-mocap_valid_frame_ranges = [ [ 1400, 29000 ] ]
 mocap_pos_scale = 0.1
 mocap_fps = 50
+
+encoder_weights_file = "../../../Data/Models/MotionTransformation/aae-rnn/results_Captury_Zach_Improvisation/weights/encoder_weights_epoch_600"
+decoder_weights_file = "../../../Data/Models/MotionTransformation/aae-rnn/results_Captury_Zach_Improvisation/weights/decoder_weights_epoch_600"
 """
 
+"""
 # Example: XSens Mocap Recording
 mocap_file_path = "../../../Data/Mocap/XSens/Stocos/Solos/fbx_50hz"
 mocap_files = ["Muriel_Embodied_Machine_variation.fbx"]
-mocap_valid_frame_ranges = [ [ 40, 7800 ] ]
 mocap_pos_scale = 1.0
 mocap_fps = 50
+
+encoder_weights_file = "../../../Data/Models/MotionTransformation/aae-rnn/results_XSens_Muriel_EmbodiedMachineVariations/weights/encoder_weights_epoch_200"
+decoder_weights_file = "../../../Data/Models/MotionTransformation/aae-rnn/results_XSens_Muriel_EmbodiedMachineVariations/weights/decoder_weights_epoch_200"
+"""
+
+"""
+# Example: Qualisys Mocap Recording
+mocap_file_path = "../../../Data/Mocap/Qualisys/Stocos/Solos/fbx_50hz"
+mocap_files = ["polytopia_fullbody_take2.fbx"]
+mocap_pos_scale = 1.0
+mocap_fps = 50
+
+encoder_weights_file = "../../../Data/Models/MotionTransformation/aae-rnn/results_Qualisis_Muriel_Polytopia/weights/encoder_weights_epoch_600"
+decoder_weights_file = "../../../Data/Models/MotionTransformation/aae-rnn/results_Qualisis_Muriel_Polytopia/weights/decoder_weights_epoch_600"
+"""
 
 """
 Model Settings
@@ -72,25 +101,6 @@ ae_rnn_layer_count = 2
 ae_rnn_layer_size = 512
 ae_dense_layer_sizes = [ 512 ]
 
-"""
-Training Settings
-"""
-
-"""
-# Example: ZED Mocap Recording
-encoder_weights_file = "../aae-rnn/results_Zed_Daniel_Solo1/weights/encoder_weights_epoch_600"
-decoder_weights_file = "../aae-rnn/results_Zed_Daniel_Solo1/weights/decoder_weights_epoch_600"
-"""
-
-"""
-# Example: Captury Mocap Recording
-encoder_weights_file = "../aae-rnn/results_Captury_Zach_Improvisation/weights/encoder_weights_epoch_600"
-decoder_weights_file = "../aae-rnn/results_Captury_Zach_Improvisation/weights/decoder_weights_epoch_600"
-"""
-
-# Example: XSens Mocap Recording
-encoder_weights_file = "../aae-rnn/results_XSens_Muriel_EmbodiedMachineVariations/weights/encoder_weights_epoch_200"
-decoder_weights_file = "../aae-rnn/results_XSens_Muriel_EmbodiedMachineVariations/weights/decoder_weights_epoch_200"
 
 """
 OSC Settings

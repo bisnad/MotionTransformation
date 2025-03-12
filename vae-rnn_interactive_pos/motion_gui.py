@@ -21,7 +21,7 @@ config = {"synthesis": None,
           "view_max": np.array([100, 100, 100], dtype=np.float32),
           "view_ele": -90,
           "view_azi": -90,
-          "view_dist": 250,
+          "view_dist": 0.5,
           "view_line_width": 2.0
     }
 
@@ -112,7 +112,7 @@ class MotionGui(QtWidgets.QWidget):
         
     def update_osc(self):
         
-        self.sender.send("/mocap/joint/pos_world", self.synth_pose_wpos)
+        self.sender.send("/mocap/0/joint/pos_world", self.synth_pose_wpos)
 
     def update_seq_plot(self):
 

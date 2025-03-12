@@ -139,7 +139,7 @@ class MotionSynthesis():
         self.encoding_mix = torch.zeros((1, self.model_encoder.latent_dim)).to(self.device)
         self.encoding_offset = torch.zeros((1, self.model_encoder.latent_dim)).to(self.device)
         
-        #self.gen_seq = torch.from_numpy(self.orig_seq[:self.seq_window_length, ...]).to(self.device)
+        #self.gen_seq = torch.from_numpy(self.orig_seq1[:self.seq_window_length, ...]).to(self.device)
         self.gen_seq = torch.Tensor([1.0, 0.0, 0.0, 0.0]).repeat(self.seq_window_length, self.joint_count, 1).to(self.device)
 
         self.gen_seq_window = None
