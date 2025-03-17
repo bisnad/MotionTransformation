@@ -35,15 +35,17 @@ device = 'cuda' if torch.cuda.is_available() else 'cpu'
 print('Using {} device'.format(device))
 
 """
-Mocap Settings
+Mocap and Training Settings
 """
 
 # Example: ZED Mocap Recording
-mocap_file_path = "../../../Data/Mocap/Zed/Daniel/Solos/fbx_30hz"
+mocap_file_path = "data/mocap/"
 mocap_files = ["daniel_zed_solo1.fbx"]
-mocap_valid_frame_ranges = [ [ 0, 9100 ] ]
 mocap_pos_scale = 1.0
 mocap_fps = 30
+
+encoder_weights_file = "data/results/weights/encoder_weights_epoch_600"
+decoder_weights_file = "data/results/weights/decoder_weights_epoch_600"
 
 """
 Model Settings
@@ -55,14 +57,6 @@ ae_rnn_layer_count = 2
 ae_rnn_layer_size = 512
 ae_dense_layer_sizes = [ 512 ]
 
-
-"""
-Training Settings
-"""
-
-# Example: ZED Mocap Recording
-encoder_weights_file = "../vae-rnn/results_Zed_Daniel_Solo1/weights/encoder_weights_epoch_600"
-decoder_weights_file = "../vae-rnn/results_Zed_Daniel_Solo1/weights/decoder_weights_epoch_600"
 
 """
 OSC Settings
