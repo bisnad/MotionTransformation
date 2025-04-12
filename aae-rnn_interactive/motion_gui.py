@@ -1,7 +1,7 @@
 import torch
 import numpy as np
 
-from PyQt5 import QtWidgets
+from PyQt5 import QtWidgets, QtCore
 from PyQt5.QtCore import Qt
 import pyqtgraph as pg
 import pyqtgraph.opengl as gl
@@ -24,6 +24,9 @@ config = {"synthesis": None,
           "view_dist": 250,
           "view_line_width": 2.0
     }
+
+class PoseCanvasUpdater(QtCore.QObject):
+    request_canvas_update = QtCore.pyqtSignal()
 
 class MotionGui(QtWidgets.QWidget):
     
@@ -75,6 +78,11 @@ class MotionGui(QtWidgets.QWidget):
 
         self.setGeometry(50,50,512,612)
         self.setWindowTitle("Motion Autoencoder")
+
+        # Signals that can be emitted 
+        self.poseCanvasUpdater = PoseCanvasUpdater()
+        # Update graph whenever the 'request_graph_update' signal is emitted 
+        self.poseCanvasUpdater.request_canvas_update.connect(self.update_pose_plot)
         
     def start(self):
         self.pose_thread_event = Event()
@@ -93,7 +101,9 @@ class MotionGui(QtWidgets.QWidget):
             start_time = time.time()            
 
             self.update_pred_seq()
-            self.update_seq_plot()
+            
+            self.poseCanvasUpdater.request_canvas_update.emit()  
+
             self.update_osc()
             
             end_time = time.time()   
@@ -130,7 +140,7 @@ class MotionGui(QtWidgets.QWidget):
         self.sender.send("/mocap/0/joint/pos_world", self.synth_pose_wpos_rh)
         self.sender.send("/mocap/0/joint/rot_world", self.synth_pose_wrot_rh)
 
-    def update_seq_plot(self):
+    def update_pose_plot(self):
         
         pose = self.synth_pose_wpos
 
