@@ -4,7 +4,7 @@
 CONDA_PATH="$HOME/opt/anaconda3"
 
 # Set the name of your Conda environment
-CONDA_ENV="ima2024"
+CONDA_ENV="premiere"
 
 # Activate the Conda environment
 source "$CONDA_PATH/bin/activate" "$CONDA_ENV"
