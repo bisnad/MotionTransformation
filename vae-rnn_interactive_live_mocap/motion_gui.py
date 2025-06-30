@@ -137,8 +137,8 @@ class MotionGui(QtWidgets.QWidget):
         self.synth_pose_wrot_rh[:, 3] = self.synth_pose_wrot[:, 2]
 
         
-        self.sender.send("/mocap/joint/pos_world", self.synth_pose_wpos_rh)
-        self.sender.send("/mocap/joint/rot_world", self.synth_pose_wrot_rh)
+        self.sender.send("/mocap/0/joint/pos_world", self.synth_pose_wpos_rh)
+        self.sender.send("/mocap/0/joint/rot_world", self.synth_pose_wrot_rh)
 
     def update_pose_plot(self):
         
