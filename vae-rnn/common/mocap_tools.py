@@ -246,6 +246,74 @@ class Mocap_Tools:
                 
         return rotations_euler
     
+    def euler_to_rotmat(self, euler_angles, order=[0,1,2], degrees=False):
+        """
+        Convert Euler angles to rotation matrices using a list order.
+        Args:
+            euler_angles: (..., 3) array. Last dimension: [angle_x, angle_y, angle_z]
+            order: list or tuple of integers among {0, 1, 2} corresponding to (x, y, z) axes
+                   For example: [0,1,2] is 'xyz', [2,1,0] is 'zyx'
+            degrees: bool, whether angles are in degrees.
+        Returns:
+            rotmats: (..., 3, 3) array of rotation matrices
+        """
+        
+        if degrees:
+            euler_angles = np.deg2rad(euler_angles)
+    
+        out_shape = euler_angles.shape[:-1]
+    
+        ones = np.ones(out_shape)
+        zeros = np.zeros(out_shape)
+    
+        # Rotation matrices for each axis
+        c = np.cos(euler_angles)
+        s = np.sin(euler_angles)
+    
+        Rx = np.stack([
+            np.stack([ones, zeros, zeros], axis=-1),
+            np.stack([zeros, c[...,0], -s[...,0]], axis=-1),
+            np.stack([zeros, s[...,0], c[...,0]], axis=-1)
+        ], axis=-2)
+    
+        Ry = np.stack([
+            np.stack([c[...,1], zeros, s[...,1]], axis=-1),
+            np.stack([zeros, ones, zeros], axis=-1),
+            np.stack([-s[...,1], zeros, c[...,1]], axis=-1)
+        ], axis=-2)
+    
+        Rz = np.stack([
+            np.stack([c[...,2], -s[...,2], zeros], axis=-1),
+            np.stack([s[...,2], c[...,2], zeros], axis=-1),
+            np.stack([zeros, zeros, ones], axis=-1)
+        ], axis=-2)
+    
+        Rs = [Rx, Ry, Rz]
+    
+        # Multiply rotation matrices in order
+        rotmat = None
+        for axis in order:
+            thisR = Rs[axis]
+            rotmat = thisR if rotmat is None else np.matmul(rotmat, thisR)
+        return rotmat
+    
+    def rotmat_to_rot6d(self, rot_matrices):
+
+        # rot_matrices: (N, J, 3, 3) numpy
+        return rot_matrices[:, :, :, :2].reshape(rot_matrices.shape[0], rot_matrices.shape[1], 6)
+    
+    def rot6d_to_rotmat(self, rot6d):
+        # rot6d is (..., 6), returns (..., 3, 3)
+        rot6d = rot6d.reshape(*rot6d.shape[:-1], 3, 2)
+        a1 = rot6d[..., :, 0]
+        a2 = rot6d[..., :, 1]
+        b1 = a1 / np.linalg.norm(a1, axis=-1, keepdims=True)
+        b2 = a2 - np.sum(b1 * a2, axis=-1, keepdims=True) * b1
+        b2 = b2 / np.linalg.norm(b2, axis=-1, keepdims=True)
+        b3 = np.cross(b1, b2)
+        rotmat = np.stack([b1, b2, b3], axis=-1)
+        return rotmat # (..., 3, 3)
+        
     def remove_joints(self, mocap_data, joints_to_remove):
         """
         Remove the joints specified in 'joints_to_remove', both from the

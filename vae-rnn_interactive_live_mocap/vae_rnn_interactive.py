@@ -38,14 +38,26 @@ print('Using {} device'.format(device))
 Mocap and Training Settings
 """
 
+"""
 # Example: ZED Mocap Recording
-mocap_file_path = "data/mocap/"
+mocap_file_path = "E:/Data/mocap/Daniel/Zed/fbx/"
+mocap_files = ["daniel_fooling_around.fbx", "daniel_fooling_around2.fbx", "daniel_zed_various.fbx"]
+mocap_pos_scale = 1.0
+mocap_fps = 30
+
+encoder_weights_file = "../vae-rnn/results_Zed_daniel_foolingaround_various/weights/encoder_weights_epoch_600"
+decoder_weights_file = "../vae-rnn/results_Zed_daniel_foolingaround_various/weights/decoder_weights_epoch_600"
+"""
+
+# Example: ZED Mocap Recording
+mocap_file_path = "../../../Data/Mocap/Zed/Daniel/Solos/fbx_30hz"
 mocap_files = ["daniel_zed_solo1.fbx"]
 mocap_pos_scale = 1.0
 mocap_fps = 30
 
-encoder_weights_file = "data/results/weights/encoder_weights_epoch_600"
-decoder_weights_file = "data/results/weights/decoder_weights_epoch_600"
+encoder_weights_file = "../../../Data/Models/MotionTransformation/vae-rnn/results_Zed_Daniel_Solo1/weights/encoder_weights_epoch_600"
+decoder_weights_file = "../../../Data/Models/MotionTransformation/vae-rnn/results_Zed_Daniel_Solo1/weights/decoder_weights_epoch_600"
+
 
 """
 Model Settings
@@ -66,7 +78,7 @@ osc_send_ip = "127.0.0.1"
 osc_send_port = 9004
 
 osc_receive_ip = "0.0.0.0"
-osc_receive_port = 9002
+osc_receive_port = 9007
 
 
 

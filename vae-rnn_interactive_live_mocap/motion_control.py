@@ -28,7 +28,7 @@ class MotionControl():
         self.dispatcher = dispatcher.Dispatcher()
         
         self.dispatcher.map("/mocap/joint/rot_local", self.setLiveSeq)
-        self.dispatcher.map("/mocap/0/joint/rot_local", self.setLiveSeq)
+        self.dispatcher.map("/mocap/*/joint/rot_local", self.setLiveSeq)
         self.dispatcher.map("/mocap/seqindex", self.setSeqIndex)
         
         self.dispatcher.map("/mocap/seqframeindex", self.setSeqFrameIndex)
@@ -52,7 +52,7 @@ class MotionControl():
         self.server.server_close()
         
     def setLiveSeq(self, address, *args):
-        
+
         osc_address = address
         osc_values = args
         
