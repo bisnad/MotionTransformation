@@ -23,6 +23,7 @@ from common.quaternion import qmul, qrot, qnormalize_np, slerp, qfix
 from common.pose_renderer import PoseRenderer
 
 from sklearn.manifold import TSNE
+from scipy.spatial.transform import Rotation as R
 from matplotlib import pyplot as plt
 
 """
@@ -884,6 +885,63 @@ def decode_sequence_encodings(sequence_encodings, seq_overlap, base_pose):
     vae.train()
     return gen_sequence
     
+@torch.no_grad()
+def decode_sequence_encodings_6d(sequence_encodings, seq_overlap, base_pose):
+    vae.eval()
+    
+    seq_env = np.hanning(mocap_window_length) + 0.01
+    
+    seq_excerpt_count = len(sequence_encodings)
+    gen_seq_length = (seq_excerpt_count - 1) * seq_overlap + mocap_window_length
+
+    # 1. Accumulators: We accumulate 3x3 matrices (9 values per joint)
+    gen_sequence_accum = np.zeros(shape=(gen_seq_length, joint_count, 3, 3), dtype=np.float32)
+    weight_accum = np.zeros(shape=(gen_seq_length, 1, 1), dtype=np.float32)
+
+    for excerpt_index in range(seq_excerpt_count):
+        latent_vector = sequence_encodings[excerpt_index]
+        latent_vector = np.expand_dims(latent_vector, axis=0)
+        latent_vector = torch.from_numpy(latent_vector).to(device)
+
+        with torch.no_grad():
+            excerpt_dec = vae.decode(latent_vector)
+            
+        excerpt_dec = excerpt_dec.permute(0, 2, 1)
+        excerpt_dec = torch.squeeze(excerpt_dec).detach().cpu().numpy()
+        excerpt_dec = np.reshape(excerpt_dec, (-1, joint_count, joint_dim))
+        
+        gen_frame = excerpt_index * seq_overlap
+
+        for si in range(mocap_window_length):
+            frame_quats = excerpt_dec[si]  
+            
+            # --- FIX 1: Enforce scalar_first=True for your (w,x,y,z) format ---
+            frame_matrices = R.from_quat(frame_quats, scalar_first=True).as_matrix() 
+            
+            mix_weight = seq_env[si]
+            
+            gen_sequence_accum[gen_frame + si] += frame_matrices * mix_weight
+            weight_accum[gen_frame + si] += mix_weight
+
+    weight_accum[weight_accum == 0.0] = 1.0 
+    
+    # Expand weight accumulator so it broadcasts across the 3x3 matrix shape
+    weight_accum_expanded = np.expand_dims(weight_accum, axis=-1)
+    avg_matrices = gen_sequence_accum / weight_accum_expanded
+
+    flat_matrices = avg_matrices.reshape(-1, 3, 3)
+    
+    # --- FIX 2: Convert back using scalar_first=True and cast to float32 ---
+    gen_sequence = R.from_matrix(flat_matrices).as_quat(scalar_first=True)
+    gen_sequence = gen_sequence.astype(np.float32) # Cast to single-precision float
+    
+    gen_sequence = gen_sequence.reshape(gen_seq_length, joint_count, joint_dim)
+    gen_sequence = qfix(gen_sequence)
+    gen_sequence = gen_sequence.reshape(gen_seq_length, -1)
+    
+    vae.train()
+    return gen_sequence
+
 def create_2d_latent_space_representation(sequence_excerpts):
     encodings = []
     excerpt_count = sequence_excerpts.shape[0]
@@ -953,14 +1011,14 @@ export_sequence_fbx(orig_sequence[seq_start:seq_start+seq_length], f"{save_anims
 
 seq_start = 1000
 seq_length = 1000
-#seq_overlap = mocap_window_length // vae_latent_count // 4
-seq_overlap = 1
+seq_overlap = mocap_window_length // vae_latent_count // 4
+#seq_overlap = 1
 base_pose = np.reshape(orig_sequence[0], (joint_count, joint_dim))
 
 seq_indices = [ frame_index for frame_index in range(seq_start, seq_start + seq_length, seq_overlap)]
 
 seq_encodings = encode_sequences(orig_sequence, seq_indices)
-gen_sequence = decode_sequence_encodings(seq_encodings, seq_overlap, base_pose)
+gen_sequence = decode_sequence_encodings_6d(seq_encodings, seq_overlap, base_pose)
 export_sequence_anim(gen_sequence, f"{save_anims_path}rec_sequences_epoch_{epochs}_seq_start_{seq_start}_length_{seq_length}.gif")
 export_sequence_fbx(gen_sequence, f"{save_anims_path}rec_sequences_epoch_{epochs}_seq_start_{seq_start}_length_{seq_length}.fbx")
 
