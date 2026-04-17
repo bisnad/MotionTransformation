@@ -96,7 +96,7 @@ os.makedirs(save_anims_path, exist_ok=True)
 # -------------------------------------------------------------------------------------------------
 vae_input_dim = None 
 vae_latent_dim = 16 
-vae_conv_channel_counts = [128, 128, 128] 
+vae_conv_channel_counts = [64, 64, 64] 
 vae_conv_kernel_sizes = [3, 3, 3, 4] 
 vae_conv_strides = [2, 2, 2, 2] 
 vae_conv_dilations = [1, 2, 4, 1] 
@@ -364,8 +364,17 @@ scheduler = CosineAnnealingWarmRestarts(optimizer, T_0=int(cycle_length), T_mult
 
 joint_loss_weights = torch.tensor(joint_loss_weights, dtype=torch.float32).reshape(1, 1, -1).to(device)
 
+"""
 def kl_loss(mu, logvar):
     return -0.5 * torch.mean(1 + logvar - mu.pow(2) - logvar.exp())
+"""
+
+def kl_loss(mu, logvar, free_bits=0.5):
+    # Per-dimension KL: shape [batch, latent_dim, latent_steps]
+    kl_per_dim = -0.5 * (1 + logvar - mu.pow(2) - logvar.exp())
+    # Clamp: ensure each dim contributes at least free_bits nats
+    kl_per_dim = torch.clamp(kl_per_dim, min=free_bits)
+    return kl_per_dim.mean()
 
 def forward_kinematics(rotation_matrices, root_positions):
     t_offsets = torch.tensor(offsets).to(device)

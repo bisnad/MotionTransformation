@@ -84,3 +84,8 @@ vae-rnn-pose/mocap/Mocap_class_0_time_1724065746.5842216.pkl
 /vae-rnn_interactive_v2/.spyproject
 /vae-rnn_interactive_v2/__pycache__
 /vae_cnn/results_6d_traj
+/vae-cnn_interactive/.spyproject
+/vae-cnn_interactive/__pycache__
+/vae-cnn_interactive/common/__pycache__
+/vae-cnn_interactive/data/results
+/vae-cnn_interactive/data/mocap
