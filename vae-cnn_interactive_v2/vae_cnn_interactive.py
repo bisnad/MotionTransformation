@@ -1,5 +1,5 @@
 # -------------------------------------------------------------------------------------------------
-# Motion Transformation - Inference Script for Direct Latent Dimension Manipulation
+# Motion Transformation - Inference Script for Latent Space Exploration
 # Employs a Convolutional Variational Beta-Autoencoder
 # Can be trained on 6D joint rotation representations and optionally on the root joint trajectory
 # -------------------------------------------------------------------------------------------------
@@ -9,6 +9,7 @@
 # -------------------------------------------------------------------------------------------------
 
 import motion_model
+import motion_mapping
 import motion_synthesis
 import motion_sender
 import motion_gui
@@ -17,22 +18,14 @@ from common.rotation_utils_numpy import  RotationUtilsNumpy as rot_np
 from common.rotation_utils_torch import  RotationUtilsTorch as rot_to
 
 import torch
-from torch.utils.data import Dataset
-from torch.utils.data import DataLoader
-from torch import nn
-from collections import OrderedDict
-import networkx as nx
-import scipy.linalg as sclinalg
-
-import os, sys, time, subprocess
+import os, sys, time
 import numpy as np
-import math
-import pickle
 
-from common import utils
 from common import bvh_tools as bvh
 from common import fbx_tools as fbx
 from common import mocap_tools as mocap
+
+from PyQt5 import QtWidgets
 
 # -------------------------------------------------------------------------------------------------
 # Compute Unit
@@ -46,10 +39,17 @@ print('Using {} device'.format(device))
 # -------------------------------------------------------------------------------------------------
 
 mocap_file_path = "E:/Data/mocap/stocos/Solos/Canal_14-08-2023/fbx_50hz/"
-mocap_files = ["Muriel_Embodied_Machine_variation.fbx"]
+mocap_file = "Muriel_Embodied_Machine_variation.fbx"
 mocap_pos_scale = 1.0
 mocap_fps = 50
 mocap_root_trajectory = False
+
+# -------------------------------------------------------------------------------------------------
+# Mapping Settings
+# -------------------------------------------------------------------------------------------------
+
+pose_excerpt_offset = 20
+n_neighbors = 4
 
 # -------------------------------------------------------------------------------------------------
 # Model Settings
@@ -86,64 +86,46 @@ bvh_tools = bvh.BVH_Tools()
 fbx_tools = fbx.FBX_Tools()
 mocap_tools = mocap.Mocap_Tools()
 
-all_mocap_data = []
+if mocap_file.endswith(".bvh") or mocap_file.endswith(".BVH"):
+    bvh_data = bvh_tools.load(mocap_file_path + mocap_file)
+    mocap_data = mocap_tools.bvh_to_mocap(bvh_data)
+    mocap_data["motion"]["rot_local"] = mocap_tools.euler_to_quat_bvh(mocap_data["motion"]["rot_local_euler"], mocap_data["rot_sequence"])
+elif mocap_file.endswith(".fbx") or mocap_file.endswith(".FBX"):
+    fbx_data = fbx_tools.load(mocap_file_path + mocap_file)
+    mocap_data = mocap_tools.fbx_to_mocap(fbx_data)[0] 
+    mocap_data["motion"]["rot_local"] = mocap_tools.euler_to_quat(mocap_data["motion"]["rot_local_euler"], mocap_data["rot_sequence"])
 
-for mocap_file in mocap_files:
-    if mocap_file.endswith(".bvh") or mocap_file.endswith(".BVH"):
-        bvh_data = bvh_tools.load(mocap_file_path + mocap_file)
-        mocap_data = mocap_tools.bvh_to_mocap(bvh_data)
-        mocap_data["motion"]["rot_local"] = mocap_tools.euler_to_quat_bvh(mocap_data["motion"]["rot_local_euler"], mocap_data["rot_sequence"])
-        
-    elif mocap_file.endswith(".fbx") or mocap_file.endswith(".FBX"):
-        fbx_data = fbx_tools.load(mocap_file_path + mocap_file)
-        mocap_data = mocap_tools.fbx_to_mocap(fbx_data)[0] 
-        mocap_data["motion"]["rot_local"] = mocap_tools.euler_to_quat(mocap_data["motion"]["rot_local_euler"], mocap_data["rot_sequence"])
+mocap_data["skeleton"]["offsets"] *= mocap_pos_scale
+mocap_data["motion"]["pos_local"] *= mocap_pos_scale
 
-    mocap_data["skeleton"]["offsets"] *= mocap_pos_scale
-    mocap_data["motion"]["pos_local"] *= mocap_pos_scale
-    
-    if not mocap_root_trajectory:
-        mocap_data["skeleton"]["offsets"][0, 0] = 0.0
-        mocap_data["skeleton"]["offsets"][0, 2] = 0.0
-        mocap_data["motion"]["pos_local"][:, 0, 0] = 0.0
-        mocap_data["motion"]["pos_local"][:, 0, 2] = 0.0
+if not mocap_root_trajectory:
+    mocap_data["skeleton"]["offsets"][0, 0] = 0.0
+    mocap_data["skeleton"]["offsets"][0, 2] = 0.0
+    mocap_data["motion"]["pos_local"][:, 0, 0] = 0.0
+    mocap_data["motion"]["pos_local"][:, 0, 2] = 0.0
 
-    mocap_data["motion"]["rot_local"] = rot_np.quat_to_r6d(mocap_data["motion"]["rot_local"])
-    all_mocap_data.append(mocap_data)
-    
-skeleton = all_mocap_data[0]["skeleton"]
-joint_count = all_mocap_data[0]["motion"]["rot_local"].shape[1]
-joint_dim = all_mocap_data[0]["motion"]["rot_local"].shape[2]
+mocap_data["motion"]["rot_local"] = rot_np.quat_to_r6d(mocap_data["motion"]["rot_local"])
 
-all_pose_sequences = []
+skeleton = mocap_data["skeleton"]
+joint_count = mocap_data["motion"]["rot_local"].shape[1]
+joint_dim = mocap_data["motion"]["rot_local"].shape[2]
 
-for mocap_data in all_mocap_data:
-    
-    pose_sequence = mocap_data["motion"]["rot_local"]
-    pose_sequence = np.reshape(pose_sequence, (-1, joint_count * joint_dim))
-    
-    if mocap_root_trajectory:
-        root_positions = mocap_data["motion"]["pos_local"][:, 0, :]
-        pose_sequence = np.concatenate((root_positions, pose_sequence), axis=1)
-    
-    all_pose_sequences.append(pose_sequence)
+pose_sequence = mocap_data["motion"]["rot_local"]
+pose_sequence = np.reshape(pose_sequence, (-1, joint_count * joint_dim))
 
-pose_dim = all_pose_sequences[0].shape[1]
+if mocap_root_trajectory:
+    root_positions = mocap_data["motion"]["pos_local"][:, 0, :]
+    pose_sequence = np.concatenate((root_positions, pose_sequence), axis=1)
+
+pose_dim = pose_sequence.shape[1]
 
 root_pos_mean = None
 root_pos_std = None
 
 if mocap_root_trajectory:
-    root_sequence = []
-    for pose_sequence in all_pose_sequences:
-        root_sequence.append(pose_sequence[:, :3])
-        
-    # Concatenate all frames from all sequences vertically
-    root_sequence_cat = np.concatenate(root_sequence, axis=0)
-    
-    # Calculate mean and std over the combined frames (axis 0)
-    root_pos_mean = np.mean(root_sequence_cat, axis=0, keepdims=True)
-    root_pos_std = np.std(root_sequence_cat, axis=0, keepdims=True)
+    root_sequence = pose_sequence[:, :3]
+    root_pos_mean = np.mean(root_sequence, axis=0, keepdims=True)
+    root_pos_std = np.std(root_sequence, axis=0, keepdims=True)
 
 # -------------------------------------------------------------------------------------------------
 # Setup Model
@@ -162,6 +144,19 @@ motion_model.config["vae_weights_path"] = vae_weights_file
 vae = motion_model.createModels(motion_model.config) 
 
 # -------------------------------------------------------------------------------------------------
+# Create Mapping
+# -------------------------------------------------------------------------------------------------
+
+motion_mapping.config["model_encoder"] = vae.encoder
+motion_mapping.config["device"] = device
+motion_mapping.config["pose_sequence"] = pose_sequence
+motion_mapping.config["pose_sequence_length"] = vae_window_length
+motion_mapping.config["pose_excerpt_offset"] = pose_excerpt_offset
+motion_mapping.config["n_neighbors"] = n_neighbors
+
+mapping = motion_mapping.MotionMapping(motion_mapping.config)
+
+# -------------------------------------------------------------------------------------------------
 # Setup Motion Synthesis
 # -------------------------------------------------------------------------------------------------
 
@@ -173,9 +168,6 @@ motion_synthesis.config["seq_window_offset"] = 1
 motion_synthesis.config["root_trajectory"] = mocap_root_trajectory
 motion_synthesis.config["root_pos_mean"] = root_pos_mean
 motion_synthesis.config["root_pos_std"] = root_pos_std
-motion_synthesis.config["orig_sequences"] = all_pose_sequences
-motion_synthesis.config["orig_seq1_index"] = 0
-motion_synthesis.config["orig_seq2_index"] = 0
 
 synthesis = motion_synthesis.MotionSynthesis(motion_synthesis.config)
 
@@ -192,22 +184,16 @@ osc_sender = motion_sender.OscSender(motion_sender.config)
 # Setup GUI
 # -------------------------------------------------------------------------------------------------
 
-from PyQt5 import QtWidgets
-from PyQt5.QtCore import Qt
-import pyqtgraph as pg
-import pyqtgraph.opengl as gl
-from pathlib import Path
-
+motion_gui.config["mapping"] = mapping
 motion_gui.config["synthesis"] = synthesis
 motion_gui.config["sender"] = osc_sender
 
 app = QtWidgets.QApplication(sys.argv)
 gui = motion_gui.MotionGui(motion_gui.config)
 
-# set close event
 def closeEvent():
     QtWidgets.QApplication.quit()
-app.lastWindowClosed.connect(closeEvent) # myExitHandler is a callable
+app.lastWindowClosed.connect(closeEvent)
 
 # -------------------------------------------------------------------------------------------------
 # Setup OSC Control
@@ -229,5 +215,4 @@ osc_control = motion_control.MotionControl(motion_control.config)
 osc_control.start()
 gui.show()
 app.exec_()
-
 osc_control.stop()

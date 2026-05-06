@@ -3,8 +3,8 @@ import numpy as np
 import torch.nn.functional as nnF
 from scipy.spatial.transform import Rotation as R
 
-import rot6d_tools as r6t
-
+from common.rotation_utils_numpy import RotationUtilsNumpy as rot_np
+from common.rotation_utils_torch import RotationUtilsTorch as rot_to
 
 config = {
     "skeleton": None,
@@ -17,9 +17,8 @@ config = {
     "root_pos_std": None,
     "orig_sequences": [],
     "orig_seq1_index": 0,
-    "orig_seq2_index": 1,
+    "orig_seq2_index": 1
 }
-
 
 class MotionSynthesis:
     def __init__(self, config):
@@ -102,6 +101,7 @@ class MotionSynthesis:
 
         self.synth_pose_wpos = None
         self.synth_pose_wrot = None
+        self.synth_pose_lrot = None
 
         self.seq_update_index = 0
 
@@ -134,7 +134,7 @@ class MotionSynthesis:
                 raise ValueError("Sequence rotations must have shape [frames, joints, 4] or [frames, joints, 6]")
 
             if rot_local.shape[-1] == 4:
-                rot_local = r6t.quat_to_6d(rot_local)
+                rot_local = rot_np.quat_to_6d(rot_local)
             elif rot_local.shape[-1] != 6:
                 raise ValueError("Rotation representation must be quaternion (4) or 6D (6)")
 
@@ -154,7 +154,7 @@ class MotionSynthesis:
 
         if seq.ndim == 3:
             if seq.shape[-1] == 4:
-                seq = r6t.quat_to_6d(seq)
+                seq = rot_np.quat_to_6d(seq)
             elif seq.shape[-1] != 6:
                 raise ValueError("3D sequence arrays must end in 4 (quat) or 6 (6D)")
 
@@ -205,11 +205,11 @@ class MotionSynthesis:
             root = decoded_window[:, :3]
             root = (root * self.root_pos_std.squeeze(0)) + self.root_pos_mean.squeeze(0)
             rot = decoded_window[:, 3:].reshape(self.seq_window_length, self.joint_count, 6)
-            rot = r6t.orthogonalize_6d(rot).reshape(self.seq_window_length, -1)
+            rot = rot_to.orthogonalize_r6d(rot).reshape(self.seq_window_length, -1)
             decoded_window = torch.cat((root, rot), dim=-1)
         else:
             rot = decoded_window.reshape(self.seq_window_length, self.joint_count, 6)
-            rot = r6t.orthogonalize_6d(rot).reshape(self.seq_window_length, -1)
+            rot = rot_to.orthogonalize_r6d(rot).reshape(self.seq_window_length, -1)
             decoded_window = rot
 
         return decoded_window
@@ -355,24 +355,6 @@ class MotionSynthesis:
 
         return gen_seq_window
 
-    def _canonicalize_6d_window(self, new_window, ref_window):
-        """
-        Flip the 6D vectors in new_window so their X columns point in the
-        same hemisphere as the corresponding vectors in ref_window.
-        new_window, ref_window: shape [T, joint_count, 6]
-        """
-        ref_x = ref_window[..., :3]   # X column of reference
-        new_x = new_window[..., :3]   # X column of new window
-    
-        # dot product sign per joint
-        dot = (ref_x * new_x).sum(dim=-1, keepdim=True)   # [..., 1]
-        sign = torch.sign(dot)
-        sign = torch.where(sign == 0, torch.ones_like(sign), sign)
-    
-        # flip both x and y columns if sign is negative
-        new_window = new_window * sign.expand_as(new_window)
-        return new_window
-
     def _blend(self):
         self.gen_seq = torch.roll(self.gen_seq, shifts=-self.seq_window_offset, dims=0)
 
@@ -389,23 +371,45 @@ class MotionSynthesis:
 
             old_rot = self.gen_seq[:self.seq_window_overlap, 3:].reshape(self.seq_window_overlap, self.joint_count, 6)
             new_rot = self.gen_seq_window[:self.seq_window_overlap, 3:].reshape(self.seq_window_overlap, self.joint_count, 6)
-            
-            new_rot = self._canonicalize_6d_window(new_rot, old_rot)
-            
-            alpha_rot = alpha.view(self.seq_window_overlap, 1, 1)
-            blend_rot = old_rot * (1.0 - alpha_rot) + new_rot * alpha_rot
-            blend_rot = r6t.orthogonalize_6d(blend_rot).reshape(self.seq_window_overlap, -1)
-
-            blend_seq = torch.cat((blend_root, blend_rot), dim=-1)
         else:
             old_rot = self.gen_seq[:self.seq_window_overlap].reshape(self.seq_window_overlap, self.joint_count, 6)
             new_rot = self.gen_seq_window[:self.seq_window_overlap].reshape(self.seq_window_overlap, self.joint_count, 6)
-            
-            new_rot = self._canonicalize_6d_window(new_rot, old_rot)
-            
-            alpha_rot = alpha.view(self.seq_window_overlap, 1, 1)
-            blend_rot = old_rot * (1.0 - alpha_rot) + new_rot * alpha_rot
-            blend_seq = r6t.orthogonalize_6d(blend_rot).reshape(self.seq_window_overlap, -1)
+
+        # --- Safe Blending via Quaternion SLERP ---
+        # Convert to numpy for robust quaternion math
+        old_rot_np = old_rot.detach().cpu().numpy()
+        new_rot_np = new_rot.detach().cpu().numpy()
+        alpha_np = alpha.detach().cpu().numpy().reshape(-1, 1, 1)
+
+        old_quat = rot_np.r6d_to_quat(old_rot_np)
+        new_quat = rot_np.r6d_to_quat(new_rot_np)
+
+        # Quaternion SLERP
+        dot = np.sum(old_quat * new_quat, axis=-1, keepdims=True)
+        
+        # Handle quaternion double cover (safely take shortest path)
+        new_quat = np.where(dot < 0, -new_quat, new_quat)
+        dot = np.clip(np.abs(dot), -1.0, 1.0)
+        
+        theta = np.arccos(dot)
+        sin_theta = np.sin(theta)
+        
+        # Avoid division by zero for very small angles
+        safe_sin = np.where(sin_theta < 1e-6, 1.0, sin_theta)
+        w0 = np.where(sin_theta < 1e-6, 1.0 - alpha_np, np.sin((1.0 - alpha_np) * theta) / safe_sin)
+        w1 = np.where(sin_theta < 1e-6, alpha_np, np.sin(alpha_np * theta) / safe_sin)
+        
+        blend_quat = w0 * old_quat + w1 * new_quat
+        blend_quat = blend_quat / np.linalg.norm(blend_quat, axis=-1, keepdims=True)
+
+        # Convert back to 6D for the model state
+        blend_rot_np = rot_np.quat_to_r6d(blend_quat).reshape(self.seq_window_overlap, -1)
+        blend_rot = torch.from_numpy(blend_rot_np).to(self.device)
+
+        if self.root_trajectory:
+            blend_seq = torch.cat((blend_root, blend_rot), dim=-1)
+        else:
+            blend_seq = blend_rot
 
         self.gen_seq[:self.seq_window_overlap] = blend_seq
         self.gen_seq[self.seq_window_overlap:] = self.gen_seq_window[self.seq_window_overlap:]
@@ -432,10 +436,16 @@ class MotionSynthesis:
 
         joint_pos_world, joint_rot_6d_world = self._forward_kinematics(joint_rot_6d, root_trajectory)
 
+        # Process joint world positions
         self.synth_pose_wpos = joint_pos_world.detach().cpu().numpy().reshape(self.joint_count, 3)
-        self.synth_pose_wrot = r6t.ortho6d_to_quat(
+        
+        # Process joint world rotations (Matrix -> Quaternion) using NumPy utils
+        self.synth_pose_wrot = rot_np.r6d_to_quat(
             joint_rot_6d_world.detach().cpu().numpy()
         ).reshape(self.joint_count, 4)
+
+        # Process local rotations
+        self.synth_pose_lrot = rot_np.r6d_to_quat(joint_rot_6d.squeeze().detach().cpu().numpy()).reshape(self.joint_count, 4)
 
         self.seq_update_index += 1
 
@@ -445,7 +455,7 @@ class MotionSynthesis:
             self.seq_update_index = 0
 
     def _forward_kinematics(self, rotations_6d, root_positions):
-        rotation_matrices = r6t.compute_rotation_matrix_from_ortho6d(rotations_6d)
+        rotation_matrices = rot_to.r6d_to_mat(rotations_6d)
 
         offsets = torch.as_tensor(self.joint_offsets, dtype=torch.float32, device=self.device)
         expanded_offsets = offsets.view(1, 1, self.joint_count, 3, 1).expand(
