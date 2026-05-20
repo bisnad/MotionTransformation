@@ -42,10 +42,21 @@ print(f"Using {device} device")
 # Mocap Settings
 # -------------------------------------------------------------------------------------------------
 
-mocap_file_path = "E:/Data/mocap/stocos/Solos/Canal_14-08-2023/fbx_50hz/"
+
+mocap_file_path = "../../../Data/Mocap/Xsens/Stocos/Solos/fbx_50hz/"
 mocap_files = ["Muriel_Embodied_Machine_variation.fbx"]
 mocap_pos_scale = 1.0
 mocap_fps = 50
+
+
+"""
+mocap_file_path = "../../../Data/Mocap/Pose3D/Stocos/Solos/"
+mocap_files = ["Stocos_DoubleBind_MediaPipe.fbx"]
+mocap_valid_time_ranges = [ [ [ 1.0, 553.0 ] ] ]  # in seconds
+mocap_pos_scale = 1.0
+mocap_fps = 30
+"""
+
 mocap_loss_weights_file = None
 train_root_trajectory = False
 
@@ -53,10 +64,11 @@ train_root_trajectory = False
 # Save Paths Settings
 # -------------------------------------------------------------------------------------------------
 
-save_path = "results/"
+save_path = "results_Stocos_EmbodiedMachineVariation_XSens/"
 save_weights_path = save_path + "weights/"
 save_history_path = save_path + "history/"
 save_anims_path = save_path + "anims/"
+save_anim_formats = ["gif", "fbx"]
 
 os.makedirs(save_weights_path, exist_ok=True)
 os.makedirs(save_history_path, exist_ok=True)
@@ -821,8 +833,12 @@ else:
 seq_start = 1000
 seq_length = 1000
 
-export_sequence_anim(orig_sequence[seq_start:seq_start+seq_length], f"{save_anims_path}orig_sequence_seq_start_{seq_start}_length_{seq_length}.gif")
-export_sequence_fbx(orig_sequence[seq_start:seq_start+seq_length], f"{save_anims_path}orig_sequence_seq_start_{seq_start}_length_{seq_length}.fbx")
+if "gif" in save_anim_formats:
+    export_sequence_anim(orig_sequence[seq_start:seq_start+seq_length], "{}orig_sequence_seq_start_{}_length_{}.gif".format(save_anims_path, seq_start, seq_length))
+if "fbx" in save_anim_formats:
+    export_sequence_fbx(orig_sequence[seq_start:seq_start+seq_length], "{}orig_sequence_seq_start_{}_length_{}.fbx".format(save_anims_path, seq_start, seq_length))
+if "bvh" in save_anim_formats:
+    export_sequence_bvh(orig_sequence[seq_start:seq_start+seq_length], "{}orig_sequence_seq_start_{}_length_{}.bvh".format(save_anims_path, seq_start, seq_length))
 
 # reconstruct original sequence
 seq_start = 1000
@@ -839,8 +855,12 @@ seq_indices = [frame_index for frame_index in range(seq_start, seq_start + seq_l
 seq_encodings = encode_sequences(orig_sequence, seq_indices)
 gen_sequence = decode_sequence_encodings(seq_encodings, seq_overlap, base_pose)
 
-export_sequence_anim(gen_sequence, f"{save_anims_path}rec_sequences_epoch_{epochs}_seq_start_{seq_start}_length_{seq_length}.gif")
-export_sequence_fbx(gen_sequence, f"{save_anims_path}rec_sequences_epoch_{epochs}_seq_start_{seq_start}_length_{seq_length}.fbx")
+if "gif" in save_anim_formats:
+    export_sequence_anim(gen_sequence, f"{save_anims_path}rec_sequences_epoch_{epochs}_seq_start_{seq_start}_length_{seq_length}.gif")
+if "fbx" in save_anim_formats:
+    export_sequence_fbx(gen_sequence, f"{save_anims_path}rec_sequences_epoch_{epochs}_seq_start_{seq_start}_length_{seq_length}.fbx")
+if "bvh" in save_anim_formats:
+    bvh(gen_sequence, f"{save_anims_path}rec_sequences_epoch_{epochs}_seq_start_{seq_start}_length_{seq_length}.bvh")
 
 # interpolate two original sequences
 seq_1_start = 1000
@@ -861,9 +881,13 @@ for index in range(len(seq_1_encodings)):
 
 gen_sequence = decode_sequence_encodings(mix_encodings, seq_overlap, base_pose)
 
-export_sequence_anim(gen_sequence, f"{save_anims_path}seq_mix_epoch_{epochs}_seq_1_start_{seq_1_start}_seq_2_start_{seq_2_start}_length_{seq_length}.gif")
-export_sequence_fbx(gen_sequence, f"{save_anims_path}seq_mix_epoch_{epochs}_seq_1_start_{seq_1_start}_seq_2_start_{seq_2_start}_length_{seq_length}.fbx")
-
+if "gif" in save_anim_formats:
+    export_sequence_anim(gen_sequence, f"{save_anims_path}seq_mix_epoch_{epochs}_seq_1_start_{seq_1_start}_seq_2_start_{seq_2_start}_length_{seq_length}.gif")
+if "fbx" in save_anim_formats:
+    export_sequence_fbx(gen_sequence, f"{save_anims_path}seq_mix_epoch_{epochs}_seq_1_start_{seq_1_start}_seq_2_start_{seq_2_start}_length_{seq_length}.fbx")
+if "bvh" in save_anim_formats:
+    export_sequence_bvh(gen_sequence, f"{save_anims_path}seq_mix_epoch_{epochs}_seq_1_start_{seq_1_start}_seq_2_start_{seq_2_start}_length_{seq_length}.bvh")
+   
 # sequence offset following sine wave
 seq_start = 1000
 seq_length = 1000
@@ -880,8 +904,12 @@ for index in range(len(seq_encodings)):
 
 gen_sequence = decode_sequence_encodings(offset_seq_encodings, seq_overlap, base_pose)
 
-export_sequence_anim(gen_sequence, f"{save_anims_path}seq_offset_epoch_{epochs}_seq_start_{seq_start}_length_{seq_length}.gif")
-export_sequence_fbx(gen_sequence, f"{save_anims_path}seq_offset_epoch_{epochs}_seq_start_{seq_start}_length_{seq_length}.fbx")
+if "gif" in save_anim_formats:
+    export_sequence_anim(gen_sequence, f"{save_anims_path}seq_offset_epoch_{epochs}_seq_start_{seq_start}_length_{seq_length}.gif")
+if "fbx" in save_anim_formats:
+    export_sequence_fbx(gen_sequence, f"{save_anims_path}seq_offset_epoch_{epochs}_seq_start_{seq_start}_length_{seq_length}.fbx")
+if "bvh" in save_anim_formats:
+    export_sequence_bvh(gen_sequence, f"{save_anims_path}seq_offset_epoch_{epochs}_seq_start_{seq_start}_length_{seq_length}.bvh")
 
 # random walk in latent space
 seq_start = 1000
@@ -896,5 +924,9 @@ for index in range(0, seq_length // seq_overlap):
 
 gen_sequence = decode_sequence_encodings(seq_encodings, seq_overlap, base_pose)
 
-export_sequence_anim(gen_sequence, f"{save_anims_path}seq_rand_walk_epoch_{epochs}_seq_start_{seq_start}_length_{seq_length}.gif")
-export_sequence_fbx(gen_sequence, f"{save_anims_path}seq_rand_walk_epoch_{epochs}_seq_start_{seq_start}_length_{seq_length}.fbx")
+if "gif" in save_anim_formats:
+    export_sequence_anim(gen_sequence, f"{save_anims_path}seq_rand_walk_epoch_{epochs}_seq_start_{seq_start}_length_{seq_length}.gif")
+if "fbx" in save_anim_formats:
+    export_sequence_fbx(gen_sequence, f"{save_anims_path}seq_rand_walk_epoch_{epochs}_seq_start_{seq_start}_length_{seq_length}.fbx")
+if "bvh" in save_anim_formats:
+    export_sequence_bvh(gen_sequence, f"{save_anims_path}seq_rand_walk_epoch_{epochs}_seq_start_{seq_start}_length_{seq_length}.bvh")

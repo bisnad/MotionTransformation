@@ -15,17 +15,6 @@ class RotationUtilsNumpy:
     # ==============================
 
     @staticmethod
-    def orthogonalize_r6d(rot_6d):
-        matrices = RotationUtilsNumpy.r6d_to_mat(rot_6d)
-        
-        # Extract the X and Y column vectors [..., 3]
-        x = matrices[..., :, 0]
-        y = matrices[..., :, 1]
-        
-        # Concatenate to form proper [..., 6] format
-        return np.concatenate((x, y), axis=-1)
-
-    @staticmethod
     def r6d_to_mat(poses):
         orig_shape = poses.shape
         poses = poses.reshape(-1, 6)

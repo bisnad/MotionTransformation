@@ -70,13 +70,13 @@ class PoseRenderer:
         ax.set_zticklabels([])
             
         # Transparent spines
-        ax.w_xaxis.line.set_color((1.0, 1.0, 1.0, 0.0))
-        ax.w_yaxis.line.set_color((1.0, 1.0, 1.0, 0.0))
-        ax.w_zaxis.line.set_color((1.0, 1.0, 1.0, 0.0))
+        ax.xaxis.line.set_color((1.0, 1.0, 1.0, 0.0))
+        ax.yaxis.line.set_color((1.0, 1.0, 1.0, 0.0))
+        ax.zaxis.line.set_color((1.0, 1.0, 1.0, 0.0))
             
         # Transparent panes
-        ax.w_xaxis.set_pane_color((1.0, 1.0, 1.0, 0.0))
-        ax.w_yaxis.set_pane_color((1.0, 1.0, 1.0, 0.0))
+        ax.xaxis.set_pane_color((1.0, 1.0, 1.0, 0.0))
+        ax.yaxis.set_pane_color((1.0, 1.0, 1.0, 0.0))
             
         # No ticks
         ax.set_xticks([])
@@ -123,13 +123,13 @@ class PoseRenderer:
         ax.set_zticklabels([])
         
         # Transparent spines
-        ax.w_xaxis.line.set_color((1.0, 1.0, 1.0, 0.0))
-        ax.w_yaxis.line.set_color((1.0, 1.0, 1.0, 0.0))
-        ax.w_zaxis.line.set_color((1.0, 1.0, 1.0, 0.0))
+        ax.xaxis.line.set_color((1.0, 1.0, 1.0, 0.0))
+        ax.yaxis.line.set_color((1.0, 1.0, 1.0, 0.0))
+        ax.zaxis.line.set_color((1.0, 1.0, 1.0, 0.0))
         
         # Transparent panes
-        ax.w_xaxis.set_pane_color((1.0, 1.0, 1.0, 0.0))
-        ax.w_yaxis.set_pane_color((1.0, 1.0, 1.0, 0.0))
+        ax.xaxis.set_pane_color((1.0, 1.0, 1.0, 0.0))
+        ax.yaxis.set_pane_color((1.0, 1.0, 1.0, 0.0))
         
         # No ticks
         ax.set_xticks([])
@@ -145,8 +145,14 @@ class PoseRenderer:
             # cleanup previous drawing
             if scatter_data != None:
                 scatter_data.remove()
+
+            for line in list(ax.lines):
+                line.remove()
+
+            """
             if len(ax.lines) > 0:
                 ax.lines.clear()
+            """
             
             point_data = np.array([poses[pI, :,0], poses[pI, :,1], poses[pI,:,2]])
             lines_data = np.array([[poses[pI, edge[0],:], poses[pI, edge[1],:]] for edge in self.edge_data])

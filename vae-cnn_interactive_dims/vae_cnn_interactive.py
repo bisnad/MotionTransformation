@@ -45,7 +45,7 @@ print('Using {} device'.format(device))
 # Mocap Settings
 # -------------------------------------------------------------------------------------------------
 
-mocap_file_path = "E:/Data/mocap/stocos/Solos/Canal_14-08-2023/fbx_50hz/"
+mocap_file_path = "data/mocap/"
 mocap_files = ["Muriel_Embodied_Machine_variation.fbx"]
 mocap_pos_scale = 1.0
 mocap_fps = 50
@@ -66,7 +66,7 @@ vae_window_length = 64
 # Training Settings
 # -------------------------------------------------------------------------------------------------
 
-vae_weights_file = "../vae_cnn/results/weights/vae_weight_epoch_200.pt"
+vae_weights_file = "data/results/weights/vae_weight_epoch_200.pt"
 
 # -------------------------------------------------------------------------------------------------
 # OSC Settings
@@ -173,6 +173,7 @@ motion_synthesis.config["seq_window_offset"] = 1
 motion_synthesis.config["root_trajectory"] = mocap_root_trajectory
 motion_synthesis.config["root_pos_mean"] = root_pos_mean
 motion_synthesis.config["root_pos_std"] = root_pos_std
+motion_synthesis.config["mocap_fps"] = mocap_fps
 motion_synthesis.config["orig_sequences"] = all_pose_sequences
 motion_synthesis.config["orig_seq1_index"] = 0
 motion_synthesis.config["orig_seq2_index"] = 0
@@ -200,6 +201,8 @@ from pathlib import Path
 
 motion_gui.config["synthesis"] = synthesis
 motion_gui.config["sender"] = osc_sender
+motion_gui.config["osc_ip"] = osc_send_ip
+motion_gui.config["osc_port"] = osc_send_port
 
 app = QtWidgets.QApplication(sys.argv)
 gui = motion_gui.MotionGui(motion_gui.config)

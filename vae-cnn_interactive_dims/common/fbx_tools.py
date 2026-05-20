@@ -17,25 +17,26 @@ from fbx import FbxSkeleton
 import numpy as np
 
 # frame rate correspondences from here: https://github.com/simnalamburt/SoftwareRasterizer/blob/master/FBX/include/fbxsdk/core/base/fbxtime.h
-FBX_TimeModes = {"eDefaultMode": "default", 
-             "eFrames120": "120", 
-             "eFrames100": "100",
-             "eFrames60": "60",
-             "eFrames50": "50",
-             "eFrames48": "48",
-             "eFrames30": "30",
-             "eFrames30Drop": "30", 
-             "eNTSCDropFrame": "29.97", 
-             "eNTSCFullFrame": "29.97", 
-             "ePAL": "25",
-             "eFrames24": "24", 
-             "eFrames1000": "1000", 
-             "eFilmFullFrame": "23.976", 
-             "eCustom": "custom", 
-             "eFrames96": "96", 
-             "eFrames72": "72",
-             "eFrames59dot94": "59.94", 
-             "eFrames119dot88": "119.88"}
+FBX_TimeModes = {FbxTime.EMode.eDefaultMode: "default", 
+             FbxTime.EMode.eFrames120: "120", 
+             FbxTime.EMode.eFrames100: "100",
+             FbxTime.EMode.eFrames60: "60",
+             FbxTime.EMode.eFrames50: "50",
+             FbxTime.EMode.eFrames48: "48",
+             FbxTime.EMode.eFrames30: "30",
+             FbxTime.EMode.eFrames30Drop: "30", 
+             FbxTime.EMode.eNTSCDropFrame: "29.97", 
+             FbxTime.EMode.eNTSCFullFrame: "29.97", 
+             FbxTime.EMode.ePAL: "25",
+             FbxTime.EMode.eFrames24: "24", 
+             FbxTime.EMode.eFrames1000: "1000", 
+             FbxTime.EMode.eFilmFullFrame: "23.976", 
+             FbxTime.EMode.eCustom: "custom", 
+             FbxTime.EMode.eFrames96: "96", 
+             FbxTime.EMode.eFrames72: "72",
+             FbxTime.EMode.eFrames59dot94: "59.94", 
+             FbxTime.EMode.eFrames119dot88: "119.88"}
+
 
 # skeleton handler used as intermediary data structure to save fbx
 class FBX_Skeleton_Handler:
@@ -62,6 +63,8 @@ class FBX_Mocap_Data:
         self.motion_pos_local = None
         self.motion_rot_local_euler = None
         
+        self.system_unit = None
+
 class FBX_Tools():
     
     def __init__(self, filename=None):
@@ -137,8 +140,15 @@ class FBX_Tools():
         # collection motion data for each mocap data
         for skel_mocap_data in self.mocap_data:
             
+            # get frame rate
             skel_mocap_data.motion_frame_rate = FBX_Tools.getFrameRate(self.scene)
+            
+            # get systemm unit
+            su = self.scene.GetGlobalSettings().GetSystemUnit()
+            
+            # get frame count
             skel_mocap_data.motion_frame_count = FBX_Tools.getFrameCount(root, self.animation_layer)
+            
             # assumes, that all nodes have the same rotatioin sequence as the skeleton root node
             skel_mocap_data.motion_rot_sequence = FBX_Tools.getRotationSequence(skel_mocap_data.skeleton_root_node )
             
@@ -156,10 +166,16 @@ class FBX_Tools():
         self.reset()
         self.mocap_data = mocap_data
         
-        # Prepare the FBX SDK
+        # 1. Prepare the FBX SDK FIRST
         self.sdkManager, self.scene = InitializeSdkObjects()
         self.time = FbxTime()
         
+        # 2. Then set framerate for scene
+        FBX_Tools.setFrameRate(self.scene, mocap_data)
+        
+        # 3. Then set system unit for scene
+        FBX_Tools.setSystemUnit(self.scene, mocap_data)
+
         # don't ask me why these values
         FbxAnimCurveDef.sDEFAULT_WEIGHT = 1.0
         FbxAnimCurveDef.sDEFAULT_VELOCITY = 1.0
@@ -256,7 +272,7 @@ class FBX_Tools():
     def getFrameRate(pScene):
         
         timeMode = pScene.GetGlobalSettings().GetTimeMode()
-        fps_string = FBX_TimeModes[timeMode.name]
+        fps_string = FBX_TimeModes[timeMode]
         
         try:
             fps_float = float(fps_string)
@@ -264,6 +280,91 @@ class FBX_Tools():
             fps_float = -1
             
         return fps_float
+
+    # TODO: figure out how to get custom framerate
+    @staticmethod
+    def setFrameRate(pScene, mocap_data):
+        
+        fps = mocap_data[0].motion_frame_rate
+        
+        if isinstance(fps, (int, float, np.number)):
+            fps = int(fps)
+        
+        fps_string = "{}".format(fps)
+        
+        print("fps ", fps)
+        print("fps_string ", fps_string)
+        
+        timeMode = FbxTime.EMode.eDefaultMode
+        
+        for key, value in FBX_TimeModes.items():
+            
+            print("value ", value)
+            
+            
+            if value == fps_string:
+                timeMode = key
+                
+                print("set time mode to : ", value)
+                
+                break
+        
+        pScene.GetGlobalSettings().SetTimeMode(timeMode)
+        
+    @staticmethod
+    def getSystemUnit(pScene):
+        
+        su = pScene.GetGlobalSettings().GetSystemUnit()
+        
+        if su == FbxSystemUnit.cm:
+            return "cm"
+        if su == FbxSystemUnit.dm:
+            return "dm"
+        if su == FbxSystemUnit.Foot:
+            return "foot"
+        if su == FbxSystemUnit.Inch:
+            return "inch"            
+        if su == FbxSystemUnit.km:
+            return "km"             
+        if su == FbxSystemUnit.m:
+            return "m"    
+        if su == FbxSystemUnit.mm:
+            return "mm"  
+        if su == FbxSystemUnit.Yard:
+            return "yard"  
+
+        return "unknown"
+
+
+    @staticmethod
+    def setSystemUnit(pScene, mocap_data):
+        
+        su_string = mocap_data[0].system_unit
+        
+        if su_string == "cm":
+            pScene.GetGlobalSettings().SetSystemUnit(FbxSystemUnit.cm) 
+            return
+        if su_string == "dm":
+            pScene.GetGlobalSettings().SetSystemUnit(FbxSystemUnit.dm) 
+            return
+        if su_string == "foot":
+            pScene.GetGlobalSettings().SetSystemUnit(FbxSystemUnit.Foot) 
+            return
+        if su_string == "inch":
+            pScene.GetGlobalSettings().SetSystemUnit(FbxSystemUnit.Inch) 
+            return        
+        if su_string == "km":
+            pScene.GetGlobalSettings().SetSystemUnit(FbxSystemUnit.km) 
+            return    
+        if su_string == "m":
+            pScene.GetGlobalSettings().SetSystemUnit(FbxSystemUnit.m) 
+            return    
+        if su_string == "mm":
+            pScene.GetGlobalSettings().SetSystemUnit(FbxSystemUnit.mm) 
+            return                
+        if su_string == "yard":
+            pScene.GetGlobalSettings().SetSystemUnit(FbxSystemUnit.Yard) 
+            return   
 
     # get animation stacks
     @staticmethod

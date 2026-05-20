@@ -15,6 +15,17 @@ class RotationUtilsTorch:
     # ==============================
 
     @staticmethod
+    def orthogonalize_r6d(rot_6d):
+        matrices = RotationUtilsTorch.r6d_to_mat(rot_6d)
+        
+        # Extract the X and Y column vectors [..., 3]
+        x = matrices[..., :, 0]
+        y = matrices[..., :, 1]
+        
+        # Concatenate to form proper [..., 6] format
+        return torch.cat((x, y), dim=-1)
+
+    @staticmethod
     def r6d_to_mat(poses):
         """Convert 6D rotation to 3x3 rotation matrix."""
         x_raw = poses[..., 0:3]

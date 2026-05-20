@@ -32,12 +32,18 @@ class MotionControl():
         
         self.dispatcher.map("/mocap/seq1frameindex", self.setSeq1FrameIndex)
         self.dispatcher.map("/mocap/seq2frameindex", self.setSeq2FrameIndex)
+
+        self.dispatcher.map("/mocap/seq1time", self.setSeq1Time)
+        self.dispatcher.map("/mocap/seq2time", self.setSeq2Time)
         
         self.dispatcher.map("/mocap/seq1framerange", self.setSeq1FrameRange)
         self.dispatcher.map("/mocap/seq2framerange", self.setSeq2FrameRange)
+
+        self.dispatcher.map("/mocap/seq1timerange", self.setSeq1TimeRange)
+        self.dispatcher.map("/mocap/seq2timerange", self.setSeq2TimeRange)
         
         self.dispatcher.map("/mocap/seq1frameincr", self.setSeq1FrameIncrement)
-        self.dispatcher.map("/mocap/sew2frameincr", self.setSeq2FrameIncrement)        
+        self.dispatcher.map("/mocap/seq2frameincr", self.setSeq2FrameIncrement)        
         
         self.dispatcher.map("/synth/encodingmix", self.setEncodingMix)
         self.dispatcher.map("/synth/encodingoffset", self.setEncodingOffset)    
@@ -48,12 +54,17 @@ class MotionControl():
         self.server.serve_forever()
 
     def start(self):
-        
         self.th = threading.Thread(target=self.start_server)
         self.th.start()
         
     def stop(self):
+        # Shutdown signals serve_forever() to stop and blocks until it does.
+        self.server.shutdown()
+        # Once the loop stops, we can safely close the server and port.
         self.server.server_close()
+        # Wait for the thread to cleanly exit
+        if hasattr(self, 'th') and self.th.is_alive():
+            self.th.join()
         
     def setSeq1Index(self, address, *args):
         
@@ -76,6 +87,18 @@ class MotionControl():
         index = args[0]
         
         self.synthesis.setSeq2FrameIndex(index)
+
+    def setSeq1Time(self, address, *args):
+        
+        seqTime = args[0]
+        seqFrame = int(seqTime * self.synthesis.mocap_fps)
+        self.synthesis.setSeq1FrameIndex(seqFrame)
+
+    def setSeq2Time(self, address, *args):
+        
+        seqTime = args[0]
+        seqFrame = int(seqTime * self.synthesis.mocap_fps)
+        self.synthesis.setSeq2FrameIndex(seqFrame)
         
     def setSeq1FrameRange(self, address, *args):
         
@@ -90,6 +113,24 @@ class MotionControl():
         endFrame = args[1]
         
         self.synthesis.setSeq2FrameRange(startFrame, endFrame)    
+
+    def setSeq1TimeRange(self, address, *args):
+        
+        seqStartTime = args[0]
+        seqEndTime = args[1]
+        seqStartFrame = int(seqStartTime * self.synthesis.mocap_fps)
+        seqEndFrame = int(seqEndTime * self.synthesis.mocap_fps)
+        
+        self.synthesis.setSeq1FrameRange(seqStartFrame, seqEndFrame)
+
+    def setSeq2TimeRange(self, address, *args):
+        
+        seqStartTime = args[0]
+        seqEndTime = args[1]
+        seqStartFrame = int(seqStartTime * self.synthesis.mocap_fps)
+        seqEndFrame = int(seqEndTime * self.synthesis.mocap_fps)
+        
+        self.synthesis.setSeq2FrameRange(seqStartFrame, seqEndFrame)  
 
     def setSeq1FrameIncrement(self, address, *args):
         
@@ -122,4 +163,3 @@ class MotionControl():
             offset.append(args[d])
         
         self.synthesis.setEncodingOffset(offset)
-

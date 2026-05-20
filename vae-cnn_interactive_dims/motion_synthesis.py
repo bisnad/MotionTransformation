@@ -15,6 +15,7 @@ config = {
     "root_trajectory": True,
     "root_pos_mean": None,
     "root_pos_std": None,
+    "mocap_fps": None,
     "orig_sequences": [],
     "orig_seq1_index": 0,
     "orig_seq2_index": 1
@@ -30,6 +31,7 @@ class MotionSynthesis:
         self.root_trajectory = bool(config["root_trajectory"])
         self.root_pos_mean = config["root_pos_mean"]
         self.root_pos_std = config["root_pos_std"]
+        self.mocap_fps = config["mocap_fps"]
         self.orig_sequences = config["orig_sequences"]
         self.orig_seq1_index = int(config["orig_seq1_index"])
         self.orig_seq2_index = int(config["orig_seq2_index"])
