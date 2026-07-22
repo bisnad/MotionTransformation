@@ -44,6 +44,7 @@ print(f"Using {device} device")
 # -------------------------------------------------------------------------------------------------
 
 
+"""
 # Example 1: FBX
 mocap_file_path = "../../../Data/Mocap/Xsens/Stocos/Solos/fbx_50hz/"
 mocap_files = ["Muriel_Take1_double_Bind.fbx"]
@@ -51,6 +52,7 @@ mocap_valid_time_ranges = [None] # in seconds
 mocap_topology_files = [None] # only used for .npz files
 mocap_pos_scale = 1.0
 mocap_fps = 50
+"""
 
 """
 # Example 2: BVH
@@ -62,7 +64,7 @@ mocap_pos_scale = 1.0
 mocap_fps = 50
 """
 
-"""
+
 # Example 3: NPZ
 mocap_file_path = "E:/data/mocap/Yurika/Mediapipe_v2/All/"
 mocap_files = ["Yurika_Everyday_Mediapipe_realtime.npz", "Yurika_Geometry_Mediapipe_realtime.npz", "Yurika_Rythm_Mediapipe_realtime.npz"]
@@ -70,7 +72,7 @@ mocap_valid_time_ranges = [ None, None, None ] # in seconds
 mocap_topology_files = [ "data/configs/Mediapipe_config.json", "data/configs/Mediapipe_config.json", "data/configs/Mediapipe_config.json"] # only used for .npz files
 mocap_pos_scale = 100.0
 mocap_fps = 30
-"""
+
 
 mocap_loss_weights_file = None
 train_root_trajectory = False
@@ -79,11 +81,11 @@ train_root_trajectory = False
 # Save Paths Settings
 # -------------------------------------------------------------------------------------------------
 
-save_path = "results_Muriel_Take1_double_Bind_fbx/"
+save_path = "results_Yurika_MotionClasses_Mediapipe_npz/"
 save_weights_path = save_path + "weights/"
 save_history_path = save_path + "history/"
 save_anims_path = save_path + "anims/"
-save_anim_formats = ["gif", "fbx"]
+save_anim_formats = ["gif", "npz"]
 
 os.makedirs(save_weights_path, exist_ok=True)
 os.makedirs(save_history_path, exist_ok=True)
@@ -119,16 +121,16 @@ target_beta = 0.25
 target_beta_cycles = 4
 target_beta_ratio = 0.5
 
-save_weights = True
+save_weights = False
 save_weights_interval = 50
-load_weights = False
-load_weights_file = "results_6d_traj/weights/vae_weight_epoch_200.pt"
+load_weights = True
+load_weights_file = "results_Yurika_MotionClasses_Mediapipe_npz/weights/vae_weight_epoch_200.pt"
 
 # -------------------------------------------------------------------------------------------------
 # Render Settings
 # -------------------------------------------------------------------------------------------------
 
-view_ele = 90.0
+view_ele = 0.0
 view_azi = -90.0
 view_line_width = 1.0
 view_size = 4.0
@@ -144,42 +146,64 @@ mocap_tools = mocap.Mocap_Tools()
 
 all_mocap_data = []
 
-for f_I, mocap_file in enumerate(mocap_files):
-    print(f"Loading {mocap_file}...")
-    
-    if mocap_file.endswith(".bvh") or mocap_file.endswith(".BVH"):
-        bvh_data = bvh_tools.load(mocap_file_path + mocap_file)
-        mocap_data = mocap_tools.bvh_to_mocap(bvh_data)
-        mocap_data["motion"]["rot_local"] = mocap_tools.euler_to_quat_bvh(mocap_data["motion"]["rot_local_euler"], mocap_data["rot_sequence"])
-        
-    elif mocap_file.endswith(".fbx") or mocap_file.endswith(".FBX"):
-        fbx_data = fbx_tools.load(mocap_file_path + mocap_file)
-        mocap_data = mocap_tools.fbx_to_mocap(fbx_data)[0] 
-        mocap_data["motion"]["rot_local"] = mocap_tools.euler_to_quat(mocap_data["motion"]["rot_local_euler"], mocap_data["rot_sequence"])
-        
-    elif mocap_file.endswith(".npz") or mocap_file.endswith(".NPZ"):
-        npz_data = npz_tools.load(mocap_file_path + mocap_file)
-        topology_data = None
-        if mocap_topology_files[f_I] is not None:
-            with open(mocap_topology_files[f_I]) as f:
-                topology_data = json.load(f)
-        mocap_data = mocap_tools.npz_to_mocap(npz_data, topology_data)
+if len(mocap_topology_files) != len(mocap_files):
+    raise ValueError("mocap_topology_files must have the same length as mocap_files")
 
-    if mocap_valid_time_ranges[f_I] is not None:
-        mocap_data_sliced = None
-        for tr in mocap_valid_time_ranges[f_I]:
-            start_frame = int(tr[0] * mocap_fps)
-            end_frame = int(tr[1] * mocap_fps)
-            mocap_data_slice = mocap_tools.slice_mocap(mocap_data, start_frame, end_frame)
-            if mocap_data_sliced is None:
-                mocap_data_sliced = mocap_data_slice
-            else:
-                mocap_data_sliced = mocap_tools.concatenate_mocap(mocap_data_sliced, mocap_data_slice)
-        mocap_data = mocap_data_sliced
+for i, mocap_file in enumerate(mocap_files):
+    print("process file ", mocap_file)
+    valid_time_ranges = mocap_valid_time_ranges[i]
+    mocap_abs_path = os.path.join(mocap_file_path, mocap_file)
+    file_ext = os.path.splitext(mocap_file)[1].lower()
 
+    if file_ext == ".bvh":
+        bvh_data = bvh_tools.load(mocap_abs_path)
+        mocap_data_raw = mocap_tools.bvh_to_mocap(bvh_data)
+        segments = mocap_tools.resample_euler_mocap_data(mocap_data_raw, mocap_fps, valid_time_ranges)
+
+        for segment in segments:
+            segment["motion"]["rot_local"] = mocap_tools.euler_to_quat_bvh(
+                segment["motion"]["rot_local_euler"],
+                segment["rot_sequence"]
+            )
+            all_mocap_data.append(segment)
+
+    elif file_ext == ".fbx":
+        fbx_data = fbx_tools.load(mocap_abs_path)
+        mocap_data_raw = mocap_tools.fbx_to_mocap(fbx_data)[0]
+        segments = mocap_tools.resample_euler_mocap_data(mocap_data_raw, mocap_fps, valid_time_ranges)
+
+        for segment in segments:
+            segment["motion"]["rot_local"] = mocap_tools.euler_to_quat(
+                segment["motion"]["rot_local_euler"],
+                segment["rot_sequence"]
+            )
+            all_mocap_data.append(segment)
+
+    elif file_ext == ".npz":
+        topology_file = mocap_topology_files[i]
+        if topology_file is None:
+            raise ValueError(
+                f"NPZ file '{mocap_file}' requires a topology JSON file path in mocap_topology_files"
+            )
+
+        npz_data, topo_data = npz_tools.load(mocap_abs_path, topology_file)
+        
+        # New npz loader returns segments automatically based on time ranges
+        segments = mocap_tools.npz_to_mocap(
+            npz_data, 
+            topo_data, 
+            mocap_fps)
+
+        for segment in segments:
+            all_mocap_data.append(segment)
+
+    else:
+        raise ValueError(f"Unsupported mocap format: {mocap_file}")
+
+for mocap_data in all_mocap_data:
     mocap_data["skeleton"]["offsets"] *= mocap_pos_scale
     mocap_data["motion"]["pos_local"] *= mocap_pos_scale
-    
+
     if not train_root_trajectory:
         mocap_data["skeleton"]["offsets"][0, 0] = 0.0
         mocap_data["skeleton"]["offsets"][0, 2] = 0.0
@@ -187,7 +211,6 @@ for f_I, mocap_file in enumerate(mocap_files):
         mocap_data["motion"]["pos_local"][:, 0, 2] = 0.0
 
     mocap_data["motion"]["rot_local"] = rot_np.quat_to_r6d(mocap_data["motion"]["rot_local"])
-    all_mocap_data.append(mocap_data)
 
 mocap_data = all_mocap_data[0]
 joint_count = mocap_data["motion"]["rot_local"].shape[1]
@@ -764,20 +787,54 @@ def export_sequence_anim(pose_sequence, file_name):
     else:
         root_trajectory = np.zeros((pose_count, 3), dtype=np.float32)
         rot_sequence = pose_sequence
-        
-    rot_sequence = np.reshape(rot_sequence, (pose_count, joint_count, 6))
+
+    # 1. Convert 6D back to Quaternions
+    rot_seq_6d = np.reshape(rot_sequence, (pose_count, joint_count, 6))
+    rot_quat = rot_np.r6d_to_quat(rot_seq_6d)
+
+    # 2. Build local positions (offsets + root trajectory)
+    pos_local = np.repeat(np.expand_dims(offsets, axis=0), pose_count, axis=0)
+    if train_root_trajectory: 
+        pos_local[:, 0, :] = root_trajectory
+
+    # 3. Use your robust external kinematics engine (Guaranteed Uncrumpled!)
+    pos_world, _ = mocap_tools.local_to_world(rot_quat, pos_local, mocap_data["skeleton"])
+
+    # 4. Coordinate System Correction (Mocap Y-Up to Matplotlib Z-Up)
+    # Apply a 90-degree pitch around the X-axis to stand the skeleton upright
+    theta = np.radians(90.0) 
+    cos_t, sin_t = np.cos(theta), np.sin(theta)
+    rot_x_mat = np.array([
+        [1.0,  0.0,    0.0],
+        [0.0,  cos_t, -sin_t],
+        [0.0,  sin_t,  cos_t]
+    ], dtype=np.float32)
     
-    rot_sequence_tensor = torch.tensor(np.expand_dims(rot_sequence, axis=0)).to(device)
-    rot_matrices = rot_to.r6d_to_mat(rot_sequence_tensor)
+    skel_sequence_vis = np.dot(pos_world, rot_x_mat.T)
     
-    root_trajectory = torch.tensor(np.expand_dims(root_trajectory, axis=0)).to(device)
+    # 5. Fix Handedness (so knees/elbows bend forward instead of backward)
+    skel_sequence_vis[..., 0] *= -1.0 
     
-    skel_sequence = forward_kinematics(rot_matrices, root_trajectory)
-    skel_sequence = skel_sequence.detach().cpu().numpy().squeeze()
-    
-    view_min, view_max = utils.get_equal_mix_max_positions(skel_sequence)
-    skel_images = poseRenderer.create_pose_images(skel_sequence, view_min, view_max, view_ele, view_azi, view_line_width, view_size, view_size)
-    skel_images[0].save(file_name, save_all=True, append_images=skel_images[1:], optimize=False, duration=33.0, loop=0)
+    # 6. Render
+    view_min, view_max = utils.get_equal_mix_max_positions(skel_sequence_vis)
+    skel_images = poseRenderer.create_pose_images(
+        skel_sequence_vis, 
+        view_min, 
+        view_max, 
+        view_ele, 
+        view_azi, 
+        view_line_width, 
+        view_size, 
+        view_size
+    )
+    skel_images[0].save(
+        file_name, 
+        save_all=True, 
+        append_images=skel_images[1:], 
+        optimize=False, 
+        duration=33.0, 
+        loop=0
+    )
 
 def export_sequence_bvh(pose_sequence, file_name):
     pose_count = pose_sequence.shape[0]
@@ -790,8 +847,8 @@ def export_sequence_bvh(pose_sequence, file_name):
         rot_sequence = pose_sequence
 
     pred_dataset = {
-        "frame_rate": mocap_data["frame_rate"],
-        "rot_sequence": mocap_data["rot_sequence"],
+        "frame_rate": mocap_data.get("frame_rate", mocap_fps),
+        "rot_sequence": mocap_data.get("rot_sequence", [0, 1, 2]),
         "skeleton": mocap_data["skeleton"],
         "motion": {}
     }
@@ -805,7 +862,7 @@ def export_sequence_bvh(pose_sequence, file_name):
     pred_dataset["motion"]["rot_local"] = rot_np.r6d_to_quat(rot_seq_6d)
     pred_dataset["motion"]["rot_local_euler"] = mocap_tools.quat_to_euler_bvh(pred_dataset["motion"]["rot_local"], pred_dataset["rot_sequence"])
     
-    pred_bvh = mocap_tools.mocap_to_bvh([pred_dataset])
+    pred_bvh = mocap_tools.mocap_to_bvh(pred_dataset)
     bvh_tools.write(pred_bvh, file_name)
 
 def export_sequence_fbx(pose_sequence, file_name):
@@ -819,8 +876,8 @@ def export_sequence_fbx(pose_sequence, file_name):
         rot_sequence = pose_sequence
 
     pred_dataset = {
-        "frame_rate": mocap_data["frame_rate"],
-        "rot_sequence": mocap_data["rot_sequence"],
+        "frame_rate": mocap_data.get("frame_rate", mocap_fps),
+        "rot_sequence": mocap_data.get("rot_sequence", [0, 1, 2]),
         "skeleton": mocap_data["skeleton"],
         "motion": {}
     }
@@ -848,22 +905,26 @@ def export_sequence_npz(pose_sequence, file_name):
         rot_sequence = pose_sequence
 
     pred_dataset = {
-        "frame_rate": mocap_data["frame_rate"],
-        "rot_sequence": mocap_data["rot_sequence"],
+        "frame_rate": mocap_data.get("frame_rate", mocap_fps),
+        "rot_sequence": mocap_data.get("rot_sequence", [0, 1, 2]),
         "skeleton": mocap_data["skeleton"],
         "motion": {}
     }
-    
+
     pos_local = np.repeat(np.expand_dims(pred_dataset["skeleton"]["offsets"], axis=0), pose_count, axis=0)
-    if train_root_trajectory:
+    if train_root_trajectory: 
         pos_local[:, 0, :] = root_trajectory
     pred_dataset["motion"]["pos_local"] = pos_local
 
+    # Convert 6D predictions back to Quaternions
     rot_seq_6d = np.reshape(rot_sequence, (pose_count, joint_count, 6))
     pred_dataset["motion"]["rot_local"] = rot_np.r6d_to_quat(rot_seq_6d)
+
+    # Use the new mocap_tools method to safely calculate world bounds and package dictionary
+    npz_dict = mocap_tools.mocap_to_npz([pred_dataset])
     
-    pred_npz = mocap_tools.mocap_to_npz([pred_dataset])
-    npz_tools.write(pred_npz, file_name)
+    # Save the flattened arrays to disk
+    np.savez_compressed(file_name, **npz_dict)
 
 # -------------------------------------------------------------------------------------------------
 # Run Training
@@ -926,8 +987,11 @@ if "bvh" in save_anim_formats:
 if "npz" in save_anim_formats:
     export_sequence_npz(gen_sequence, f"{save_anims_path}rec_sequences_epoch_{epochs}_seq_start_{seq_start}_length_{seq_length}.npz")
 
-seq_1_start = 1000
-seq_2_start = 2000
+#seq_1_start = 1000
+#seq_2_start = 2000
+
+seq_1_start = 0
+seq_2_start = 1000
 
 seq_1_indices = [seq_index for seq_index in range(seq_1_start, seq_1_start + seq_length, seq_overlap)]
 seq_2_indices = [seq_index for seq_index in range(seq_2_start, seq_2_start + seq_length, seq_overlap)]

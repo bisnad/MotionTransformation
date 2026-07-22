@@ -103,3 +103,8 @@ vae-rnn-pose/mocap/Mocap_class_0_time_1724065746.5842216.pkl
 /vae_cnn_v2/common/__pycache__
 /vae_cnn_v2/results
 /vae_cnn_v2/results_Muriel_Take1_double_Bind_fbx
+/vae-rnn_v3/.spyproject
+/vae-rnn_v3/common/__pycache__
+/vae-rnn_v3/results
+/vae_cnn_v2/results_Muriel_Take1_double_Bind_bvh
+/vae_cnn_v2/results_Yurika_MotionClasses_Mediapipe_npz
